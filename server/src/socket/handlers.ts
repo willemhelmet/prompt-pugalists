@@ -201,8 +201,42 @@ export function registerSocketHandlers(io: IO, db: Database.Database): void {
     });
 
     socket.on("battle:forfeit", ({ roomId }) => {
-      // TODO: handle forfeit
-      console.log(`Player ${socket.id} forfeited in room ${roomId}`);
+      const room = roomManager.getRoom(roomId);
+      if (!room?.battle || room.battle.winnerId) return;
+
+      const slot = roomManager.getPlayerSlot(roomId, socket.id);
+      if (!slot) return;
+
+      const forfeiter = room.battle[slot];
+      const winnerSlot = slot === "player1" ? "player2" : "player1";
+      const winner = room.battle[winnerSlot];
+
+      room.battle.winnerId = winner.playerId;
+      room.battle.winCondition = "forfeit";
+      room.battle.completedAt = new Date().toISOString();
+
+      // Set forfeiter HP to 0 for visual clarity
+      forfeiter.currentHp = 0;
+
+      roomManager.setRoomState(roomId, "completed");
+
+      io.to(roomId).emit("battle:end", {
+        winnerId: winner.playerId,
+        battle: room.battle,
+        finalResolution: room.battle.resolutionHistory.at(-1) ?? {
+          player1Action: "",
+          player2Action: "",
+          interpretation: `${forfeiter.character.name} has forfeited the battle. ${winner.character.name} wins!`,
+          player1HpChange: 0,
+          player2HpChange: 0,
+          newBattleState: room.battle.currentState,
+          videoPrompt: `${winner.character.name} stands victorious as ${forfeiter.character.name} concedes defeat.`,
+          diceRolls: [],
+          timestamp: new Date().toISOString(),
+        },
+      });
+
+      console.log(`Player ${socket.id} (${forfeiter.character.name}) forfeited in room ${roomId}`);
     });
 
     // ── Disconnect ───────────────────────────────────────────

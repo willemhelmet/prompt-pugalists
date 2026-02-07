@@ -15,6 +15,7 @@ export function Battle() {
   const [lastResolution, setLastResolution] = useState<BattleResolution | null>(null);
   const [winner, setWinner] = useState<string | null>(null);
   const [generatingAction, setGeneratingAction] = useState(false);
+  const [showForfeitConfirm, setShowForfeitConfirm] = useState(false);
 
   const battle = useGameStore((s) => s.battle);
   const playerSlot = useGameStore((s) => s.playerSlot);
@@ -89,6 +90,11 @@ export function Battle() {
     if (!action.trim() || submitted) return;
     setSubmitted(true);
     socket.emit("battle:action", { roomId: roomId!, actionText: action.trim() });
+  }
+
+  function handleForfeit() {
+    socket.emit("battle:forfeit", { roomId: roomId! });
+    setShowForfeitConfirm(false);
   }
 
   if (!battle || !myPlayer || !opponent) {
@@ -214,6 +220,32 @@ export function Battle() {
               {submitted ? "Waiting for opponent..." : "Submit Action"}
             </button>
           </div>
+
+          {/* Forfeit */}
+          {!showForfeitConfirm ? (
+            <button
+              onClick={() => setShowForfeitConfirm(true)}
+              className="text-gray-600 hover:text-red-400 text-xs transition-colors self-center"
+            >
+              Forfeit Match
+            </button>
+          ) : (
+            <div className="flex items-center justify-center gap-3 bg-red-950/50 border border-red-800 rounded-lg p-3">
+              <span className="text-red-300 text-sm">Are you sure?</span>
+              <button
+                onClick={handleForfeit}
+                className="bg-red-600 hover:bg-red-500 text-white text-sm py-1 px-4 rounded font-semibold transition-colors"
+              >
+                Yes, Forfeit
+              </button>
+              <button
+                onClick={() => setShowForfeitConfirm(false)}
+                className="bg-gray-700 hover:bg-gray-600 text-white text-sm py-1 px-4 rounded font-semibold transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
         </>
       )}
     </div>

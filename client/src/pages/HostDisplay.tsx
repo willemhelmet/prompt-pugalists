@@ -13,10 +13,14 @@ export function HostDisplay() {
   const [lastResolution, setLastResolution] = useState<BattleResolution | null>(null);
   const [resolving, setResolving] = useState(false);
   const [winner, setWinner] = useState<string | null>(null);
-  const [log, setLog] = useState<string[]>([]);
+  interface LogEntry {
+    type: "info" | "narrative" | "damage";
+    text: string;
+  }
+  const [log, setLog] = useState<LogEntry[]>([]);
 
-  function addLog(msg: string) {
-    setLog((prev) => [...prev, msg]);
+  function addLog(msg: string, type: LogEntry["type"] = "info") {
+    setLog((prev) => [...prev, { type, text: msg }]);
   }
 
   useEffect(() => {
@@ -49,7 +53,17 @@ export function HostDisplay() {
       setBattle(battle);
       setLastResolution(resolution);
       setResolving(false);
-      addLog(resolution.interpretation);
+      addLog(resolution.interpretation, "narrative");
+      const p1Dmg = resolution.player1HpChange;
+      const p2Dmg = resolution.player2HpChange;
+      if (p1Dmg !== 0 || p2Dmg !== 0) {
+        const parts: string[] = [];
+        if (p1Dmg < 0) parts.push(`${battle.player1.character.name} ${p1Dmg} HP`);
+        if (p1Dmg > 0) parts.push(`${battle.player1.character.name} +${p1Dmg} HP`);
+        if (p2Dmg < 0) parts.push(`${battle.player2.character.name} ${p2Dmg} HP`);
+        if (p2Dmg > 0) parts.push(`${battle.player2.character.name} +${p2Dmg} HP`);
+        addLog(parts.join(" | "), "damage");
+      }
     }
 
     function onBattleEnd({ winnerId, battle, finalResolution }: { winnerId: string; battle: Battle; finalResolution: BattleResolution }) {
@@ -125,12 +139,23 @@ export function HostDisplay() {
       />
 
       {/* Log */}
-      <div className="bg-gray-900 rounded-lg p-4 border border-gray-800 h-36 overflow-y-auto">
+      <div className="bg-gray-900 rounded-lg p-4 border border-gray-800 h-44 overflow-y-auto">
         {log.length === 0 ? (
           <p className="text-gray-500 text-sm">Waiting for players to join...</p>
         ) : (
-          log.map((msg, i) => (
-            <p key={i} className="text-gray-400 text-sm">{msg}</p>
+          log.map((entry, i) => (
+            <p
+              key={i}
+              className={`text-sm ${
+                entry.type === "narrative"
+                  ? "text-indigo-300 mt-2"
+                  : entry.type === "damage"
+                    ? "text-red-400 text-xs font-mono"
+                    : "text-gray-400"
+              }`}
+            >
+              {entry.text}
+            </p>
           ))
         )}
       </div>
