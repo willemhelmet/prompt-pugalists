@@ -50,6 +50,14 @@ export function initDb(): Database.Database {
   db.pragma("journal_mode = WAL");
   db.exec(SCHEMA);
 
+  // Migrations — add columns that may not exist yet
+  try {
+    db.exec(`ALTER TABLE characters ADD COLUMN visual_fingerprint TEXT NOT NULL DEFAULT ''`);
+    console.log("Added visual_fingerprint column to characters table");
+  } catch {
+    // Column already exists — ignore
+  }
+
   console.log(`Database initialized at ${dbPath}`);
   return db;
 }

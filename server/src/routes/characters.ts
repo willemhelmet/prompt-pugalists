@@ -11,6 +11,7 @@ function toCamelCase(row: any): any {
     imageUrl: row.image_url,
     textPrompt: row.text_prompt,
     referenceImageUrl: row.reference_image_url,
+    visualFingerprint: row.visual_fingerprint || "",
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

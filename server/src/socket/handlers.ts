@@ -3,10 +3,24 @@ import type Database from "better-sqlite3";
 import type { ClientEvents, ServerEvents, Character } from "../types.js";
 import { roomManager } from "../managers/RoomManager.js";
 import { createBattle, applyResolution, checkVictory } from "../managers/BattleManager.js";
-import { resolveCombat, generateActionSuggestion } from "../ai/mistral.js";
+import { runEngine, generateActionSuggestion, generateInitialActionChoices } from "../ai/mistral.js";
 
 type IO = Server<ClientEvents, ServerEvents>;
 type ClientSocket = Socket<ClientEvents, ServerEvents>;
+
+function toChar(row: any): Character {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    name: row.name,
+    imageUrl: row.image_url,
+    textPrompt: row.text_prompt,
+    referenceImageUrl: row.reference_image_url,
+    visualFingerprint: row.visual_fingerprint || "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
 
 export function registerSocketHandlers(io: IO, db: Database.Database): void {
   io.on("connection", (socket: ClientSocket) => {
@@ -62,16 +76,7 @@ export function registerSocketHandlers(io: IO, db: Database.Database): void {
         return;
       }
 
-      const character: Character = {
-        id: row.id,
-        userId: row.user_id,
-        name: row.name,
-        imageUrl: row.image_url,
-        textPrompt: row.text_prompt,
-        referenceImageUrl: row.reference_image_url,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
-      };
+      const character = toChar(row);
 
       io.to(roomId).emit("character:selected", {
         playerId: player.playerId,
@@ -79,7 +84,7 @@ export function registerSocketHandlers(io: IO, db: Database.Database): void {
       });
     });
 
-    socket.on("player:ready", ({ roomId }) => {
+    socket.on("player:ready", async ({ roomId }) => {
       const player = roomManager.getPlayerByConnectionId(roomId, socket.id);
       if (!player) return;
 
@@ -98,32 +103,42 @@ export function registerSocketHandlers(io: IO, db: Database.Database): void {
       const c2 = db.prepare("SELECT * FROM characters WHERE id = ?").get(p2.characterId) as any;
       if (!c1 || !c2) return;
 
-      const toChar = (row: any): Character => ({
-        id: row.id,
-        userId: row.user_id,
-        name: row.name,
-        imageUrl: row.image_url,
-        textPrompt: row.text_prompt,
-        referenceImageUrl: row.reference_image_url,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
-      });
+      const char1 = toChar(c1);
+      const char2 = toChar(c2);
+      const environment = room.environment || "A mystical arena crackling with arcane energy";
 
       // Create battle
       const battle = createBattle(
         roomId,
-        toChar(c1),
-        toChar(c2),
+        char1,
+        char2,
         p1.playerId,
         p2.playerId,
-        room.environment || "A mystical arena crackling with arcane energy",
+        environment,
       );
 
       room.battle = battle;
       roomManager.setRoomState(roomId, "battle");
 
+      // Generate initial action choices for Round 1
+      const [p1Choices, p2Choices] = await Promise.all([
+        generateInitialActionChoices(char1, char2, environment),
+        generateInitialActionChoices(char2, char1, environment),
+      ]);
+
+      battle.currentActionChoices = { player1: p1Choices, player2: p2Choices };
+
       io.to(roomId).emit("battle:start", { battle });
-      io.to(roomId).emit("battle:request_actions", { timeLimit: 30 });
+
+      // Send action choices per-player (each player only sees their own)
+      io.to(p1.connectionId).emit("battle:request_actions", {
+        timeLimit: 30,
+        actionChoices: p1Choices,
+      });
+      io.to(p2.connectionId).emit("battle:request_actions", {
+        timeLimit: 30,
+        actionChoices: p2Choices,
+      });
 
       console.log(`Battle started in room ${roomId}: ${c1.name} vs ${c2.name}`);
     });
@@ -153,24 +168,38 @@ export function registerSocketHandlers(io: IO, db: Database.Database): void {
         const action1 = room.battle.pendingActions.player1.actionText;
         const action2 = room.battle.pendingActions.player2.actionText;
 
-        const resolution = await resolveCombat(room.battle, action1, action2);
+        const resolution = await runEngine(room.battle, action1, action2);
 
         applyResolution(room.battle, resolution);
 
-        // Check victory
+        // Check victory (server HP check OR engine detection)
         const winnerId = checkVictory(room.battle);
-        if (winnerId) {
-          room.battle.winnerId = winnerId;
+        const engineVictory = resolution.isVictory;
+
+        if (winnerId || engineVictory) {
+          const actualWinner = winnerId || resolution.winnerId || room.battle.player1.playerId;
+
+          room.battle.winnerId = actualWinner;
           room.battle.winCondition = "hp_depleted";
           room.battle.completedAt = new Date().toISOString();
 
+          // Send victory narration to host
+          io.to(room.hostConnectionId).emit("battle:narrator_audio", {
+            narratorScript: resolution.victoryNarration || resolution.narratorScript,
+          });
+
           io.to(roomId).emit("battle:end", {
-            winnerId,
+            winnerId: actualWinner,
             battle: room.battle,
             finalResolution: resolution,
           });
-          console.log(`Battle ended in room ${roomId}, winner: ${winnerId}`);
+          console.log(`Battle ended in room ${roomId}, winner: ${actualWinner}`);
         } else {
+          // Send narrator script to host for TTS
+          io.to(room.hostConnectionId).emit("battle:narrator_audio", {
+            narratorScript: resolution.narratorScript,
+          });
+
           io.to(roomId).emit("battle:round_complete", {
             battle: room.battle,
             resolution,
@@ -179,7 +208,22 @@ export function registerSocketHandlers(io: IO, db: Database.Database): void {
           // Clear pending actions for next round
           room.battle.pendingActions = { player1: null, player2: null };
 
-          io.to(roomId).emit("battle:request_actions", { timeLimit: 30 });
+          // Send action choices per-player
+          const p1Conn = room.players.player1?.connectionId;
+          const p2Conn = room.players.player2?.connectionId;
+
+          if (p1Conn) {
+            io.to(p1Conn).emit("battle:request_actions", {
+              timeLimit: 30,
+              actionChoices: resolution.player1ActionChoices,
+            });
+          }
+          if (p2Conn) {
+            io.to(p2Conn).emit("battle:request_actions", {
+              timeLimit: 30,
+              actionChoices: resolution.player2ActionChoices,
+            });
+          }
         }
       }
     });
@@ -220,6 +264,13 @@ export function registerSocketHandlers(io: IO, db: Database.Database): void {
 
       roomManager.setRoomState(roomId, "completed");
 
+      const forfeitNarration = `And it's all over! ${forfeiter.character.name} has thrown in the towel — ${winner.character.name} takes it without needing another blow. What a way to end it!`;
+
+      // Send narrator script for forfeit
+      io.to(room.hostConnectionId).emit("battle:narrator_audio", {
+        narratorScript: forfeitNarration,
+      });
+
       io.to(roomId).emit("battle:end", {
         winnerId: winner.playerId,
         battle: room.battle,
@@ -232,6 +283,13 @@ export function registerSocketHandlers(io: IO, db: Database.Database): void {
           player2HpChange: 0,
           newBattleState: room.battle.currentState,
           videoPrompt: `${winner.character.name} stands victorious as ${forfeiter.character.name} concedes defeat.`,
+          narratorScript: forfeitNarration,
+          battleSummaryUpdate: `${forfeiter.character.name} forfeited. ${winner.character.name} wins.`,
+          player1ActionChoices: [],
+          player2ActionChoices: [],
+          isVictory: true,
+          winnerId: winner.playerId,
+          victoryNarration: forfeitNarration,
           diceRolls: [],
           timestamp: new Date().toISOString(),
         },

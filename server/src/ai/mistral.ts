@@ -1,118 +1,129 @@
 import { Mistral } from "@mistralai/mistralai";
-import type { Battle, BattleResolution } from "../types.js";
+import type { Battle, BattleResolution, Character } from "../types.js";
 import { placeholderResolve } from "../managers/BattleManager.js";
 
 const client = new Mistral({ apiKey: process.env.MISTRAL_API_KEY! });
 
-// ── System prompt for combat adjudication ──────────────────────
+// ── AI Engine System Prompt ─────────────────────────────────────
 
-const COMBAT_SYSTEM_PROMPT = `
-You are the Dungeon Master for a high-stakes magical duel. Your role is to:
+const ENGINE_SYSTEM_PROMPT = `
+You are the AI Engine for Prompt Pugilists — a real-time AI battle game. You are the SOLE AUTHORITY on what happens in this battle. Your output drives the video generation, voice narration, game state, and player choices simultaneously.
 
-1. **Interpret** both players' actions creatively
-2. **Evaluate** how they interact (do they clash? complement? counter?)
-3. **Determine** outcomes using dramatic narrative and dice mechanics
-4. **Update** HP and narrative state
-5. **Create** a cinematic video prompt (2-3 sentences)
+## YOUR RESPONSIBILITIES
 
-## Guidelines
+1. **Interpret** both players' chosen actions
+2. **Resolve** the clash using dice mechanics and creative narrative
+3. **Produce coordinated output** for ALL downstream systems in one pass
+4. **Maintain battle memory** by summarizing this round's events
 
-**Action Resolution:**
-- Both actions happen simultaneously - there is NO turn order
-- Roll dice (1d20) to determine success vs failure
-- Success threshold: 10+ (with modifiers based on creativity and context)
-- Damage typically ranges from 8-15 HP per successful attack
-- Get creative with how abilities interact (fire vs ice, shields vs projectiles, etc.)
-- Players can attempt ANYTHING - interpret their intent generously
-- Use the battle environment in creative ways
-- No mana restrictions - players can cast unlimited spells!
+## CRITICAL: OUTPUT COORDINATION
 
-**HP System:**
-- Both players start with 20 HP
-- Typical damage: 3-8 HP per attack
-- Healing: 4-10 HP
-- Critical moments can justify larger swings
-- If HP reaches 0, that player is defeated
+Every field you produce must tell the SAME STORY:
+- If the narrator says "Zara was engulfed in flames" then the video prompt MUST show flames hitting Zara
+- If HP drops by 15, the narrator and video must reflect serious damage
+- If a player's condition changes to "frozen solid", the next round's action choices must account for that
+- The 4 action choices for each player must react to what JUST happened
 
-**Narrative State:**
-- The battle environment should influence outcomes and descriptions
-- Track character conditions dynamically (wounded, energized, exhausted, etc.)
-- Build tension and drama
-- Reference character appearance if relevant to actions
+## CHARACTER VISUAL FINGERPRINTS
 
-**Dice Rolls:**
-- Roll for attack/defense/saves as needed
-- Show your work (for transparency)
-- Use modifiers based on action creativity and contextual advantages
+Each character has a detailed text description (their "visual fingerprint"). You MUST use specific visual details from these fingerprints in the videoPrompt so the video renders the characters consistently. Reference their clothing, colors, distinctive features, weapons, etc.
 
-**Video Prompt:**
-- 2-3 cinematic sentences
-- Describe the KEY visual moment of this exchange
-- Focus on drama, action, and magical/combat effects
+## VISUAL DEGRADATION
+
+As fighters lose HP, their appearance MUST reflect the damage in the videoPrompt:
+- **30-40 HP (Fresh)**: Character looks as described in fingerprint — pristine, confident, powerful
+- **20-29 HP (Worn)**: Visible wear — torn clothing, sweat, dirt, scuffed armor, slightly hunched posture
+- **10-19 HP (Battered)**: Serious damage — bleeding, limping, broken equipment, exhaustion visible, struggling to stand
+- **1-9 HP (Desperate)**: Near collapse — barely standing, clothing in tatters, bloodied, one eye shut, using weapon as a crutch
+
+Always layer these degradation details ON TOP of the character's visual fingerprint. The character should still be recognizable but visibly worse for wear.
+
+## VIDEO PROMPT RULES
+
+- 2-3 sentences, purely visual/cinematic
+- ALWAYS include character visual details from fingerprints + degradation based on current HP
+- Focus on the KEY dramatic moment of the clash
 - Incorporate the battle environment
-- Reference character appearance if relevant
-- Example: "In the volcanic arena, Zara's fireball collides with Mordak's ice barrier above a river of lava. The elements clash in a blinding explosion of steam and light. When the mist clears, Mordak is on one knee at the edge of the lava flow, his shield shattered into glittering fragments."
+- Written for a video generation AI (describe what the camera SEES)
 
-**Announcer Text:**
-- ONE short punchy sentence, max 15 words
-- Hyped fight announcer style — exclamation marks, dramatic
-- Example: "DEVASTATING fireball! Mordak crumbles to 8 HP!"
+## NARRATOR SCRIPT RULES
 
-## Response Format
+You are a **Champions League-style British sports commentator**. Think Martin Tyler calling a last-minute winner.
 
-Return ONLY valid JSON:
+- 3-5 sentences, written to be SPOKEN ALOUD by a British commentator
+- Genuinely excited, building energy as the fight intensifies
+- Occasionally cheeky or witty — dry humor, understatement
+- Reference characters BY NAME, always
+- Describe what happened, who got hurt, what's at stake
+- End with tension or a question: "Can Mordak survive another round?" / "The momentum has shifted!"
+- As HP gets low, the commentary should get more urgent and breathless
+- Do NOT use cringeworthy gaming tropes — no "CRITICAL HIT!", no "COMBO BREAKER!", no anime announcer energy
+- Do NOT duplicate the video prompt — this is for ears, video is for eyes
+
+Example tone: "Oh, that is BRILLIANT from Zara! She's pulled the lava right from the arena floor and Mordak has absolutely no answer for it. He's staggering, he's hurt — and with only fifteen hit points remaining, you have to wonder if he can possibly come back from this."
+
+## ACTION CHOICES (4 per player)
+
+Generate 4 distinct tactical options for each player's NEXT round. Each choice: 1-2 sentences, specific to current battle state and character. Offer a natural spread of options:
+- One aggressive/offensive move
+- One defensive/protective move
+- One creative/environmental move
+- One high-risk high-reward gambit
+
+Do NOT label them with categories — just write the action text. Keep them punchy and exciting.
+Action choices must account for each player's current condition and HP level.
+
+## BATTLE MEMORY
+
+You are given a cumulative "Battle Summary" of everything that has happened so far. Use this to maintain continuity — reference earlier events, callback to previous moves, build on the narrative arc.
+
+You MUST produce a "battleSummaryUpdate" — a 2-3 sentence summary of THIS round's key events. The server will append it to the running summary for the next round's context.
+
+## DICE MECHANICS
+
+- Roll 1d20 for attack/defense (10+ success, with creativity modifiers)
+- Damage: 8-15 HP typical, exceptional moments can go higher
+- Both actions resolve SIMULTANEOUSLY
+- Show your rolls for transparency
+
+## HP SYSTEM
+
+- Both players: 40 HP max
+- Healing: 5-10 HP (rare, requires narrative justification)
+- If HP reaches 0: set isVictory=true, provide victoryNarration
+
+## RESPONSE FORMAT
+
+Return ONLY valid JSON with these exact fields:
 
 {
-  "interpretation": "Zara attempts a powerful fireball while Mordak conjures an ice shield",
-
-  "player1HpChange": -5,
-  "player2HpChange": -12,
-
+  "interpretation": "What you understood both players wanted to do",
+  "player1HpChange": -10,
+  "player2HpChange": -8,
   "newBattleState": {
-    "environmentDescription": "The volcanic arena's lava flows are more intense, steam rising from the recent collision",
-    "player1Condition": "Zara is breathing hard, sweat on her brow from the heat, but triumphant",
-    "player2Condition": "Mordak kneels at the lava's edge, his shield shattered, left arm badly burned",
-    "previousEvents": [
-      "Zara cast massive fireball",
-      "Mordak erected ice barrier",
-      "Barrier shattered under overwhelming force",
-      "Mordak took heavy damage and was knocked toward lava"
-    ]
+    "environmentDescription": "Updated environment",
+    "player1Condition": "Updated condition for player 1",
+    "player2Condition": "Updated condition for player 2",
+    "previousEvents": ["Event 1", "Event 2", "Event 3"],
+    "battleSummary": ""
   },
-
-  "videoPrompt": "A massive fireball erupts from Zara's hands and crashes into Mordak's shimmering ice barrier over rivers of flowing lava. The collision creates a blinding explosion of steam and crackling energy. When the mist clears, Mordak is on one knee at the edge of a lava flow, his shield shattered into glittering fragments, smoke rising from his scorched robes.",
-
-  "announcerText": "DEVASTATING fireball! Mordak crumbles to 8 HP!",
-
+  "videoPrompt": "2-3 cinematic sentences with character fingerprint details and degradation",
+  "narratorScript": "3-5 sentences of British sports commentary",
+  "battleSummaryUpdate": "2-3 sentence recap of this round",
+  "player1ActionChoices": ["Action 1", "Action 2", "Action 3", "Action 4"],
+  "player2ActionChoices": ["Action 1", "Action 2", "Action 3", "Action 4"],
+  "isVictory": false,
+  "winnerId": null,
+  "victoryNarration": null,
   "diceRolls": [
-    {
-      "player": "player1",
-      "purpose": "fireball attack",
-      "formula": "1d20+3",
-      "result": 18,
-      "modifier": 3
-    },
-    {
-      "player": "player1",
-      "purpose": "fire damage",
-      "formula": "2d8+3",
-      "result": 14,
-      "modifier": 3
-    },
-    {
-      "player": "player2",
-      "purpose": "ice shield defense",
-      "formula": "1d20+1",
-      "result": 12,
-      "modifier": 1
-    }
+    { "player": "player1", "purpose": "attack roll", "formula": "1d20+3", "result": 18, "modifier": 3 }
   ]
 }
 `;
 
 // ── Build the per-round context prompt ─────────────────────────
 
-function buildCombatPrompt(
+function buildEnginePrompt(
   battle: Battle,
   action1: string,
   action2: string,
@@ -120,24 +131,31 @@ function buildCombatPrompt(
   const p1 = battle.player1;
   const p2 = battle.player2;
   const state = battle.currentState;
+  const roundNumber = battle.resolutionHistory.length + 1;
+
+  const p1Appearance = p1.character.visualFingerprint || p1.character.textPrompt;
+  const p2Appearance = p2.character.visualFingerprint || p2.character.textPrompt;
 
   return `
-## Current Battle State
+## Current Battle State — Round ${roundNumber}
 
 **Environment:** ${state.environmentDescription}
 
+### Battle Summary So Far
+${state.battleSummary || "This is the opening round. No previous events."}
+
 ### Player 1: ${p1.character.name}
 - HP: ${p1.currentHp}/${p1.maxHp}
-- Appearance: ${p1.character.textPrompt}
+- Visual Fingerprint: ${p1Appearance}
 - Condition: ${state.player1Condition}
 
 ### Player 2: ${p2.character.name}
 - HP: ${p2.currentHp}/${p2.maxHp}
-- Appearance: ${p2.character.textPrompt}
+- Visual Fingerprint: ${p2Appearance}
 - Condition: ${state.player2Condition}
 
 ### Previous Events
-${state.previousEvents.map((e, i) => `${i + 1}. ${e}`).join("\n")}
+${state.previousEvents.length > 0 ? state.previousEvents.map((e, i) => `${i + 1}. ${e}`).join("\n") : "None yet."}
 
 ## This Round's Actions
 
@@ -147,24 +165,26 @@ ${state.previousEvents.map((e, i) => `${i + 1}. ${e}`).join("\n")}
 
 ---
 
-Resolve these actions simultaneously and return your response as JSON.
+Resolve these actions simultaneously. Use the visual fingerprints to write a visually specific videoPrompt — remember, as fighters lose HP they should visually show it (torn clothing, exhaustion, injuries). Write the narratorScript as an excited British Champions League-style commentator. Generate 4 action choices per player for the next round. Include a battleSummaryUpdate (2-3 sentences summarizing this round).
+
+Return your response as JSON matching the expected format.
 `;
 }
 
-// ── Combat resolution (mistral-large) ──────────────────────────
+// ── AI Engine: single-pass combat resolution (mistral-large) ───
 
-export async function resolveCombat(
+export async function runEngine(
   battle: Battle,
   action1: string,
   action2: string,
 ): Promise<BattleResolution> {
-  const prompt = buildCombatPrompt(battle, action1, action2);
+  const prompt = buildEnginePrompt(battle, action1, action2);
 
   try {
     const response = await client.chat.complete({
       model: "mistral-large-latest",
       messages: [
-        { role: "system", content: COMBAT_SYSTEM_PROMPT },
+        { role: "system", content: ENGINE_SYSTEM_PROMPT },
         { role: "user", content: prompt },
       ],
       responseFormat: { type: "json_object" },
@@ -178,24 +198,88 @@ export async function resolveCombat(
 
     const parsed = JSON.parse(content);
 
+    // Defensive parsing — provide defaults for any missing fields
     const resolution: BattleResolution = {
       player1Action: action1,
       player2Action: action2,
-      interpretation: parsed.interpretation,
-      announcerText: parsed.announcerText || parsed.interpretation,
-      player1HpChange: parsed.player1HpChange,
-      player2HpChange: parsed.player2HpChange,
-      newBattleState: parsed.newBattleState,
-      videoPrompt: parsed.videoPrompt,
-      diceRolls: parsed.diceRolls,
+      interpretation: parsed.interpretation ?? "The fighters clash!",
+      player1HpChange: parsed.player1HpChange ?? 0,
+      player2HpChange: parsed.player2HpChange ?? 0,
+      newBattleState: {
+        environmentDescription: parsed.newBattleState?.environmentDescription ?? battle.currentState.environmentDescription,
+        player1Condition: parsed.newBattleState?.player1Condition ?? battle.currentState.player1Condition,
+        player2Condition: parsed.newBattleState?.player2Condition ?? battle.currentState.player2Condition,
+        previousEvents: parsed.newBattleState?.previousEvents ?? battle.currentState.previousEvents,
+        battleSummary: battle.currentState.battleSummary ?? "",
+      },
+      videoPrompt: parsed.videoPrompt ?? `${battle.player1.character.name} and ${battle.player2.character.name} clash in the arena.`,
+      narratorScript: parsed.narratorScript ?? parsed.interpretation ?? "The fighters exchange blows!",
+      battleSummaryUpdate: parsed.battleSummaryUpdate ?? "",
+      player1ActionChoices: Array.isArray(parsed.player1ActionChoices) ? parsed.player1ActionChoices.slice(0, 4) : [],
+      player2ActionChoices: Array.isArray(parsed.player2ActionChoices) ? parsed.player2ActionChoices.slice(0, 4) : [],
+      isVictory: parsed.isVictory ?? false,
+      winnerId: parsed.winnerId ?? null,
+      victoryNarration: parsed.victoryNarration ?? null,
+      diceRolls: Array.isArray(parsed.diceRolls) ? parsed.diceRolls : [],
       timestamp: new Date().toISOString(),
     };
 
-    console.log(`[Mistral] Combat resolved via mistral-large — P1: ${resolution.player1HpChange} HP, P2: ${resolution.player2HpChange} HP`);
+    console.log(`[Engine] Round resolved — P1: ${resolution.player1HpChange} HP, P2: ${resolution.player2HpChange} HP, victory: ${resolution.isVictory}`);
     return resolution;
   } catch (err) {
-    console.error("[Mistral] Combat resolution FAILED, using placeholder:", err);
+    console.error("[Engine] Resolution FAILED, using placeholder:", err);
     return placeholderResolve(battle, action1, action2);
+  }
+}
+
+// ── Generate initial action choices for Round 1 (mistral-medium) ─
+
+export async function generateInitialActionChoices(
+  character: Character,
+  opponent: Character,
+  environment: string,
+): Promise<string[]> {
+  const appearance = character.visualFingerprint || character.textPrompt;
+  const opponentAppearance = opponent.visualFingerprint || opponent.textPrompt;
+
+  try {
+    const response = await client.chat.complete({
+      model: "mistral-medium-latest",
+      messages: [
+        {
+          role: "system",
+          content: `Generate 4 opening battle actions for a character. Return ONLY a JSON object with an "actions" key containing an array of 4 strings, each 1-2 sentences. Include: one aggressive, one defensive, one creative, one wild gambit. No category labels — just the action text. Make them specific to the character and opponent.`,
+        },
+        {
+          role: "user",
+          content: `Character: ${character.name} (${appearance})\nOpponent: ${opponent.name} (${opponentAppearance})\nEnvironment: ${environment}`,
+        },
+      ],
+      responseFormat: { type: "json_object" },
+      temperature: 0.9,
+      maxTokens: 400,
+    });
+
+    const content = response.choices?.[0]?.message?.content;
+    if (!content || typeof content !== "string") {
+      throw new Error("Empty response from Mistral");
+    }
+
+    const parsed = JSON.parse(content);
+    const actions = parsed.actions;
+    if (Array.isArray(actions) && actions.length >= 4) {
+      console.log(`[Engine] Initial action choices generated for ${character.name}`);
+      return actions.slice(0, 4);
+    }
+    throw new Error("Invalid actions array");
+  } catch (err) {
+    console.error(`[Engine] Initial action choices FAILED for ${character.name}, using fallback:`, err);
+    return [
+      `Launch a powerful opening strike against ${opponent.name}!`,
+      `Take a defensive stance and study ${opponent.name}'s movements carefully.`,
+      `Use the environment to gain a tactical advantage before engaging.`,
+      `Channel everything into one devastating surprise attack!`,
+    ];
   }
 }
 

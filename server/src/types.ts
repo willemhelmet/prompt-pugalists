@@ -9,6 +9,7 @@ export interface Character {
   imageUrl: string;
   textPrompt: string;
   referenceImageUrl: string | null;
+  visualFingerprint: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -63,6 +64,7 @@ export interface BattleState {
   player1Condition: string;
   player2Condition: string;
   previousEvents: string[];
+  battleSummary: string;
 }
 
 export interface PendingAction {
@@ -87,6 +89,13 @@ export interface BattleResolution {
   player2HpChange: number;
   newBattleState: BattleState;
   videoPrompt: string;
+  narratorScript: string;
+  battleSummaryUpdate: string;
+  player1ActionChoices: string[];
+  player2ActionChoices: string[];
+  isVictory: boolean;
+  winnerId: string | null;
+  victoryNarration: string | null;
   diceRolls: DiceRoll[];
   timestamp: string;
 }
@@ -102,6 +111,10 @@ export interface Battle {
   pendingActions: {
     player1: PendingAction | null;
     player2: PendingAction | null;
+  };
+  currentActionChoices: {
+    player1: string[];
+    player2: string[];
   };
   resolutionHistory: BattleResolution[];
   winnerId: string | null;
@@ -145,7 +158,8 @@ export interface ServerEvents {
     character: Character;
   }) => void;
   "battle:start": (data: { battle: Battle }) => void;
-  "battle:request_actions": (data: { timeLimit: number }) => void;
+  "battle:request_actions": (data: { timeLimit: number; actionChoices: string[] }) => void;
+  "battle:narrator_audio": (data: { narratorScript: string }) => void;
   "battle:action_received": (data: { playerId: string }) => void;
   "battle:action_generated": (data: {
     playerId: string;

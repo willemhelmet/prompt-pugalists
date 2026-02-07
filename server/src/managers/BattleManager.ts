@@ -20,6 +20,7 @@ export function createBattle(
     player1Condition: `${player1Character.name} stands ready for battle`,
     player2Condition: `${player2Character.name} stands ready for battle`,
     previousEvents: [],
+    battleSummary: "",
   };
 
   return {
@@ -39,6 +40,7 @@ export function createBattle(
     },
     currentState: initialState,
     pendingActions: { player1: null, player2: null },
+    currentActionChoices: { player1: [], player2: [] },
     resolutionHistory: [],
     winnerId: null,
     winCondition: null,
@@ -58,6 +60,21 @@ export function applyResolution(battle: Battle, resolution: BattleResolution): v
   );
 
   battle.currentState = resolution.newBattleState;
+
+  // Grow cumulative battle memory
+  if (resolution.battleSummaryUpdate) {
+    const roundLabel = `Round ${battle.resolutionHistory.length + 1}`;
+    battle.currentState.battleSummary =
+      (battle.currentState.battleSummary || "") +
+      `\n${roundLabel}: ${resolution.battleSummaryUpdate}`;
+  }
+
+  // Store action choices for next round
+  battle.currentActionChoices = {
+    player1: resolution.player1ActionChoices || [],
+    player2: resolution.player2ActionChoices || [],
+  };
+
   battle.resolutionHistory.push(resolution);
 }
 
@@ -124,9 +141,26 @@ export function placeholderResolve(
         ...battle.currentState.previousEvents.slice(-4),
         ...events,
       ],
+      battleSummary: battle.currentState.battleSummary || "",
     },
     videoPrompt: `${p1.character.name} and ${p2.character.name} clash in ${battle.currentState.environmentDescription}`,
-    announcerText: `${p1.character.name} and ${p2.character.name} clash in an explosive exchange!`,
+    narratorScript: `${p1.character.name} and ${p2.character.name} exchange blows! ${events.join(". ")}.`,
+    battleSummaryUpdate: `Both fighters exchanged attacks. ${events.join(". ")}.`,
+    player1ActionChoices: [
+      `Launch a powerful attack against ${p2.character.name}!`,
+      `Raise a defensive barrier and brace for impact.`,
+      `Use the environment to gain a tactical advantage.`,
+      `Channel all your energy into one devastating strike!`,
+    ],
+    player2ActionChoices: [
+      `Launch a powerful attack against ${p1.character.name}!`,
+      `Raise a defensive barrier and brace for impact.`,
+      `Use the environment to gain a tactical advantage.`,
+      `Channel all your energy into one devastating strike!`,
+    ],
+    isVictory: false,
+    winnerId: null,
+    victoryNarration: null,
     diceRolls: [
       { player: "player1", purpose: "attack roll", formula: "1d20+3", result: p1Attack.result, modifier: p1Attack.modifier },
       ...(p1Hit ? [{ player: "player1" as const, purpose: "damage", formula: "2d6+2", result: p1Damage.result, modifier: p1Damage.modifier }] : []),
