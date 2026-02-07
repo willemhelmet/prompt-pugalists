@@ -27,9 +27,9 @@ export function Landing() {
 
         <Link
           href="/characters"
-          className="text-gray-400 hover:text-white text-center py-2 transition-colors"
+          className="bg-gray-800 hover:bg-gray-700 text-center py-3 px-6 rounded-lg font-semibold text-lg transition-colors border border-gray-700"
         >
-          My Characters
+          Browse Characters
         </Link>
       </div>
     </div>

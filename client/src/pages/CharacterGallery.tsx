@@ -25,7 +25,7 @@ export function CharacterGallery() {
   return (
     <div className="flex flex-col min-h-screen p-6 gap-6 max-w-lg mx-auto">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">My Characters</h2>
+        <h2 className="text-2xl font-bold">Browse Characters</h2>
         <Link
           href="/"
           className="text-sm text-gray-400 hover:text-white transition-colors"
