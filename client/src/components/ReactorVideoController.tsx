@@ -5,6 +5,12 @@ import type { Battle, BattleResolution } from "../types";
 const FRAME_LIMIT = 240;
 const CYCLE_RESTART_THRESHOLD = 230;
 
+// Style lock — must match the suffix the AI engine appends to every videoPrompt.
+// Reactor has no memory between prompts, so every prompt needs identical style cues
+// to prevent the visual aesthetic from shifting between rounds.
+const STYLE_SUFFIX =
+  "AAA video game, Unreal Engine 5, global illumination, volumetric lighting, stylized 3D characters, vibrant saturated colors, dramatic rim lighting, shallow depth of field, cinematic camera.";
+
 interface ReactorVideoControllerProps {
   battle: Battle;
   lastResolution: BattleResolution | null;
@@ -16,21 +22,23 @@ function composeInitialPrompt(battle: Battle): string {
   const c1 = battle.player1.character;
   const c2 = battle.player2.character;
   const env = battle.currentState.environmentDescription;
-  return `${c1.textPrompt} and ${c2.textPrompt} face off in ${env}. Dramatic fighting game scene, dynamic camera angle, vibrant colors.`;
+  const c1Desc = c1.visualFingerprint || c1.textPrompt;
+  const c2Desc = c2.visualFingerprint || c2.textPrompt;
+  return `${c1Desc} and ${c2Desc} face off in ${env}. Dramatic fighting game scene, medium-wide shot, slightly low angle. ${STYLE_SUFFIX}`;
 }
 
 function composeAmbientPrompt(battle: Battle): string {
   const c1 = battle.player1.character;
   const c2 = battle.player2.character;
   const env = battle.currentState.environmentDescription;
-  return `${c1.name} and ${c2.name} circle each other in ${env}. Tense standoff, fighting game, dynamic lighting.`;
+  return `${c1.name} and ${c2.name} circle each other in ${env}. Tense standoff, medium-wide shot, both fighters visible. ${STYLE_SUFFIX}`;
 }
 
 function composeVictoryPrompt(battle: Battle, winnerId: string): string {
   const isP1Winner = battle.player1.playerId === winnerId;
   const winnerChar = isP1Winner ? battle.player1.character : battle.player2.character;
   const loser = isP1Winner ? battle.player2.character : battle.player1.character;
-  return `${winnerChar.name} stands victorious over ${loser.name}. Triumphant pose, dramatic lighting, fighting game victory screen.`;
+  return `${winnerChar.name} stands victorious over defeated ${loser.name}. Triumphant pose, medium-wide shot, slightly low angle. ${STYLE_SUFFIX}`;
 }
 
 export function ReactorVideoController({

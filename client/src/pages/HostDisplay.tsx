@@ -61,7 +61,6 @@ export function HostDisplay() {
       setLastResolution(resolution);
       setResolving(false);
       addLog(resolution.interpretation, "narrative");
-      announceRef.current(resolution.announcerText || resolution.interpretation);
       const p1Dmg = resolution.player1HpChange;
       const p2Dmg = resolution.player2HpChange;
       if (p1Dmg !== 0 || p2Dmg !== 0) {
@@ -84,9 +83,10 @@ export function HostDisplay() {
           ? battle.player1.character.name
           : battle.player2.character.name;
       addLog(`${winnerName} wins!`);
-      announceRef.current(
-        finalResolution.announcerText || `${winnerName} is VICTORIOUS! What an INCREDIBLE battle!`,
-      );
+    }
+
+    function onNarratorAudio({ narratorScript }: { narratorScript: string }) {
+      announceRef.current(narratorScript);
     }
 
     socket.on("room:player_joined", onPlayerJoined);
@@ -96,6 +96,7 @@ export function HostDisplay() {
     socket.on("battle:resolving", onResolving);
     socket.on("battle:round_complete", onRoundComplete);
     socket.on("battle:end", onBattleEnd);
+    socket.on("battle:narrator_audio", onNarratorAudio);
 
     return () => {
       socket.off("room:player_joined", onPlayerJoined);
@@ -105,6 +106,7 @@ export function HostDisplay() {
       socket.off("battle:resolving", onResolving);
       socket.off("battle:round_complete", onRoundComplete);
       socket.off("battle:end", onBattleEnd);
+      socket.off("battle:narrator_audio", onNarratorAudio);
     };
   }, [setPlayer]);
 

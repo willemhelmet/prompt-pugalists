@@ -84,7 +84,6 @@ export interface BattleResolution {
   player1Action: string;
   player2Action: string;
   interpretation: string;
-  announcerText: string;
   player1HpChange: number;
   player2HpChange: number;
   newBattleState: BattleState;

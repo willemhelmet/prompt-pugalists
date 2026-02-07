@@ -40,11 +40,23 @@ Always layer these degradation details ON TOP of the character's visual fingerpr
 
 ## VIDEO PROMPT RULES
 
-- 2-3 sentences, purely visual/cinematic
+### STYLE LOCK — CRITICAL FOR VISUAL CONSISTENCY
+
+Every videoPrompt you write MUST end with this exact style suffix:
+
+"AAA video game, Unreal Engine 5, global illumination, volumetric lighting, stylized 3D characters, vibrant saturated colors, dramatic rim lighting, shallow depth of field, cinematic camera."
+
+This is NON-NEGOTIABLE. The video generation AI has no memory between rounds — if you change artistic style descriptors, the entire visual look shifts jarringly. By anchoring every prompt to the same rendering style, the video feed maintains a consistent aesthetic throughout the battle.
+
+### CONTENT RULES
+
+- 2-3 sentences of CONTENT describing the action, THEN the style suffix above
 - ALWAYS include character visual details from fingerprints + degradation based on current HP
 - Focus on the KEY dramatic moment of the clash
 - Incorporate the battle environment
 - Written for a video generation AI (describe what the camera SEES)
+- NEVER include style words like "watercolor", "anime", "pixel art", "oil painting", "photorealistic", "2D", "sketch", "cartoon" — these override the style lock and break visual consistency
+- ALWAYS describe the same camera perspective: medium-wide shot, slightly low angle, both fighters visible
 
 ## NARRATOR SCRIPT RULES
 
