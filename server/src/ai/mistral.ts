@@ -251,3 +251,80 @@ Return ONLY the action text, no preamble.
     return `${player.character.name} channels their energy and launches a powerful attack!`;
   }
 }
+
+// ── Surprise Me: character prompt ─────────────────────────────
+
+export async function generateCharacterSuggestion(): Promise<{
+  name: string;
+  prompt: string;
+}> {
+  try {
+    const response = await client.chat.complete({
+      model: "mistral-medium-latest",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a creative fantasy character designer. Generate unique, visually striking fighters for a magical combat game.",
+        },
+        {
+          role: "user",
+          content: `Invent a unique fighting game character. Return ONLY valid JSON with two fields:
+- "name": a dramatic character name (2-4 words)
+- "prompt": a vivid visual description for AI image generation (60-100 words). Describe their appearance, clothing, weapons, magical effects, and mood. Use cinematic, visual language.
+
+Be wildly creative — mix genres, cultures, and fantasy elements. No generic wizards or knights.`,
+        },
+      ],
+      responseFormat: { type: "json_object" },
+      temperature: 1.0,
+      maxTokens: 200,
+    });
+
+    const content = response.choices?.[0]?.message?.content;
+    if (!content || typeof content !== "string") throw new Error("Empty response");
+
+    const parsed = JSON.parse(content);
+    console.log(`[Mistral] Character suggestion: ${parsed.name}`);
+    return { name: parsed.name, prompt: parsed.prompt };
+  } catch (err) {
+    console.error("[Mistral] Character suggestion FAILED:", err);
+    return {
+      name: "Ember Wraith",
+      prompt:
+        "A spectral warrior wreathed in flickering green flame, wearing tattered samurai armor fused with crystalline growths, dual-wielding curved blades that trail ghostly afterimages, hollow glowing eyes peering from beneath a cracked oni mask",
+    };
+  }
+}
+
+// ── Surprise Me: environment prompt ───────────────────────────
+
+export async function generateEnvironmentSuggestion(): Promise<string> {
+  try {
+    const response = await client.chat.complete({
+      model: "mistral-medium-latest",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a creative fantasy environment designer for a magical combat game.",
+        },
+        {
+          role: "user",
+          content: `Invent a unique battle arena for a fantasy fighting game. Return ONLY the description text (60-100 words, no JSON wrapping). Describe the landscape, lighting, atmosphere, and any dramatic environmental features. Use vivid, cinematic visual language. Be wildly creative — mix unexpected themes.`,
+        },
+      ],
+      temperature: 1.0,
+      maxTokens: 150,
+    });
+
+    const content = response.choices?.[0]?.message?.content;
+    if (!content || typeof content !== "string") throw new Error("Empty response");
+
+    console.log("[Mistral] Environment suggestion generated");
+    return content.trim();
+  } catch (err) {
+    console.error("[Mistral] Environment suggestion FAILED:", err);
+    return "A shattered clockwork cathedral suspended in a violet nebula, massive gears grinding slowly overhead, stained glass windows projecting kaleidoscopic light beams across floating stone platforms connected by chains of pure energy";
+  }
+}

@@ -43,6 +43,58 @@ export const api = {
   deleteCharacter: (id: string) =>
     request<{ deleted: boolean }>(`/characters/${id}`, { method: "DELETE" }),
 
+  // Image generation & upload
+  uploadImage: async (file: File): Promise<{ url: string }> => {
+    const formData = new FormData();
+    formData.append("image", file);
+
+    const res = await fetch(`${API_BASE}/upload/image`, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(error.error || "Upload failed");
+    }
+
+    return res.json();
+  },
+
+  generateCharacterImage: (prompt: string) =>
+    request<{ url: string }>("/upload/generate", {
+      method: "POST",
+      body: JSON.stringify({ prompt }),
+    }),
+
+  generateCharacterImageWithReference: async (
+    file: File,
+    prompt: string,
+  ): Promise<{ url: string }> => {
+    const formData = new FormData();
+    formData.append("referenceImage", file);
+    formData.append("prompt", prompt);
+
+    const res = await fetch(`${API_BASE}/upload/generate-with-reference`, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(error.error || "Generation failed");
+    }
+
+    return res.json();
+  },
+
+  // Suggestions (Mistral-powered "Surprise Me")
+  suggestCharacter: () =>
+    request<{ name: string; prompt: string }>("/suggest/character", { method: "POST" }),
+
+  suggestEnvironment: () =>
+    request<{ prompt: string }>("/suggest/environment", { method: "POST" }),
+
   // Rooms
   getRoom: (id: string) => request<any>(`/rooms/${id}`),
 };

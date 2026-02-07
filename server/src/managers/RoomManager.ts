@@ -7,7 +7,7 @@ const generateRoomCode = customAlphabet("ABCDEFGHJKLMNPQRSTUVWXYZ23456789", ROOM
 export class RoomManager {
   private rooms: Map<string, Room> = new Map();
 
-  createRoom(hostConnectionId: string, environment: string): Room {
+  createRoom(hostConnectionId: string, environment: string, environmentImageUrl?: string): Room {
     const roomId = generateRoomCode();
     const now = new Date().toISOString();
 
@@ -17,6 +17,7 @@ export class RoomManager {
       players: { player1: null, player2: null },
       state: "waiting",
       environment,
+      environmentImageUrl: environmentImageUrl || null,
       battle: null,
       createdAt: now,
       expiresAt: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),

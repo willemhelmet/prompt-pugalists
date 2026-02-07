@@ -2,6 +2,20 @@ import { Router } from "express";
 import { nanoid } from "nanoid";
 import type Database from "better-sqlite3";
 
+function toCamelCase(row: any): any {
+  if (!row) return row;
+  return {
+    id: row.id,
+    userId: row.user_id,
+    name: row.name,
+    imageUrl: row.image_url,
+    textPrompt: row.text_prompt,
+    referenceImageUrl: row.reference_image_url,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
 export function characterRoutes(db: Database.Database): Router {
   const router = Router();
 
@@ -17,7 +31,7 @@ export function characterRoutes(db: Database.Database): Router {
       .prepare("SELECT * FROM characters WHERE user_id = ? ORDER BY created_at DESC")
       .all(userId);
 
-    res.json(characters);
+    res.json(characters.map(toCamelCase));
   });
 
   // Get single character
@@ -29,7 +43,7 @@ export function characterRoutes(db: Database.Database): Router {
       return;
     }
 
-    res.json(character);
+    res.json(toCamelCase(character));
   });
 
   // Create character
@@ -44,7 +58,7 @@ export function characterRoutes(db: Database.Database): Router {
     ).run(id, userId, name, imageUrl, textPrompt, referenceImageUrl || null, now, now);
 
     const character = db.prepare("SELECT * FROM characters WHERE id = ?").get(id);
-    res.status(201).json(character);
+    res.status(201).json(toCamelCase(character));
   });
 
   // Update character
@@ -65,7 +79,7 @@ export function characterRoutes(db: Database.Database): Router {
     }
 
     const character = db.prepare("SELECT * FROM characters WHERE id = ?").get(req.params.id);
-    res.json(character);
+    res.json(toCamelCase(character));
   });
 
   // Delete character

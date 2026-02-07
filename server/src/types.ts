@@ -41,6 +41,7 @@ export interface Room {
   };
   state: RoomState;
   environment: string | null;
+  environmentImageUrl: string | null;
   battle: Battle | null;
   createdAt: string;
   expiresAt: string;
@@ -113,7 +114,7 @@ export interface Battle {
 // ============================================================
 
 export interface ClientEvents {
-  "room:create": (data: { username: string; environment: string }) => void;
+  "room:create": (data: { username: string; environment: string; environmentImageUrl?: string }) => void;
   "room:join": (data: { roomId: string; username: string }) => void;
   "character:select": (data: { roomId: string; characterId: string }) => void;
   "player:ready": (data: { roomId: string }) => void;

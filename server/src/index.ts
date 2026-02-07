@@ -8,6 +8,8 @@ import { initDb } from "./db/index.js";
 import { characterRoutes } from "./routes/characters.js";
 import { roomRoutes } from "./routes/rooms.js";
 import { authRoutes } from "./routes/auth.js";
+import { uploadRoutes } from "./routes/upload.js";
+import { suggestRoutes } from "./routes/suggest.js";
 import { registerSocketHandlers } from "./socket/handlers.js";
 
 const PORT = parseInt(process.env.PORT || "3000", 10);
@@ -25,6 +27,8 @@ app.use(express.json());
 app.use("/api/auth", authRoutes(db));
 app.use("/api/characters", characterRoutes(db));
 app.use("/api/rooms", roomRoutes(db));
+app.use("/api/upload", uploadRoutes());
+app.use("/api/suggest", suggestRoutes());
 
 // Health check
 app.get("/api/health", (_req, res) => {

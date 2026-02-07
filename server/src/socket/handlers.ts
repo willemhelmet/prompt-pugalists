@@ -14,8 +14,8 @@ export function registerSocketHandlers(io: IO, db: Database.Database): void {
 
     // ── Room events ──────────────────────────────────────────
 
-    socket.on("room:create", ({ username, environment }) => {
-      const room = roomManager.createRoom(socket.id, environment);
+    socket.on("room:create", ({ username, environment, environmentImageUrl }) => {
+      const room = roomManager.createRoom(socket.id, environment, environmentImageUrl);
       socket.join(room.id);
       socket.emit("room:created", { roomId: room.id, room });
       console.log(`Room ${room.id} created by ${username}`);

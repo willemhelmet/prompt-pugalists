@@ -1,42 +1,51 @@
-import { useState, useEffect, useRef } from "react";
-import { useLocation } from "wouter";
-import { ENVIRONMENT_CHAR_LIMIT } from "../types";
-import { socket, connectSocket } from "../lib/socket";
-import { useGameStore } from "../stores/gameStore";
+import { useState, useRef, useEffect } from "react";
+import { Link } from "wouter";
+import { CHARACTER_PROMPT_CHAR_LIMIT } from "../types";
 import { api } from "../lib/api";
 import { resizeImage } from "../lib/resizeImage";
-import { DEFAULT_ENVIRONMENTS } from "../lib/defaultEnvironments";
 
-export function HostEnvironment() {
-  const [environment, setEnvironment] = useState("");
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
+interface CharacterFormProps {
+  initialName?: string;
+  initialTextPrompt?: string;
+  initialImageUrl?: string | null;
+  initialReferenceImageUrl?: string | null;
+  onSubmit: (data: {
+    name: string;
+    textPrompt: string;
+    imageUrl: string;
+    referenceImageUrl: string | null;
+  }) => Promise<void>;
+  submitLabel: string;
+  submittingLabel: string;
+  title: string;
+  backHref: string;
+}
+
+export function CharacterForm({
+  initialName = "",
+  initialTextPrompt = "",
+  initialImageUrl = null,
+  initialReferenceImageUrl = null,
+  onSubmit,
+  submitLabel,
+  submittingLabel,
+  title,
+  backHref,
+}: CharacterFormProps) {
+  const [name, setName] = useState(initialName);
+  const [textPrompt, setTextPrompt] = useState(initialTextPrompt);
+  const [imageUrl, setImageUrl] = useState<string | null>(initialImageUrl);
   const [referenceFile, setReferenceFile] = useState<File | null>(null);
-  const [referencePreview, setReferencePreview] = useState<string | null>(null);
+  const [referencePreview, setReferencePreview] = useState<string | null>(
+    initialReferenceImageUrl,
+  );
+  const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [suggesting, setSuggesting] = useState(false);
-  const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [, navigate] = useLocation();
-  const { setRoom, setIsHost } = useGameStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    connectSocket();
-
-    function onRoomCreated({ roomId, room }: { roomId: string; room: any }) {
-      setRoom(room);
-      setIsHost(true);
-      navigate(`/host/${roomId}`);
-    }
-
-    socket.on("room:created", onRoomCreated);
-
-    return () => {
-      socket.off("room:created", onRoomCreated);
-    };
-  }, [navigate, setRoom, setIsHost]);
-
-  // Cleanup blob URLs
+  // Cleanup blob URLs on unmount
   useEffect(() => {
     return () => {
       if (referencePreview && referencePreview.startsWith("blob:")) {
@@ -71,7 +80,7 @@ export function HostEnvironment() {
   }
 
   async function handleGenerate() {
-    if (!environment.trim() || generating) return;
+    if (!textPrompt.trim() || generating) return;
     setGenerating(true);
     setError(null);
 
@@ -80,14 +89,14 @@ export function HostEnvironment() {
       if (referenceFile) {
         result = await api.generateCharacterImageWithReference(
           referenceFile,
-          environment.trim(),
+          textPrompt.trim(),
         );
       } else {
-        result = await api.generateCharacterImage(environment.trim());
+        result = await api.generateCharacterImage(textPrompt.trim());
       }
       setImageUrl(result.url);
     } catch (err: any) {
-      console.error("Arena generation failed:", err);
+      console.error("Generation failed:", err);
       setError(err.message || "Image generation failed");
     } finally {
       setGenerating(false);
@@ -100,8 +109,9 @@ export function HostEnvironment() {
     setError(null);
 
     try {
-      const result = await api.suggestEnvironment();
-      setEnvironment(result.prompt);
+      const result = await api.suggestCharacter();
+      setName(result.name);
+      setTextPrompt(result.prompt);
     } catch (err: any) {
       console.error("Suggestion failed:", err);
       setError(err.message || "Suggestion failed");
@@ -110,27 +120,56 @@ export function HostEnvironment() {
     }
   }
 
-  function selectPreset(preset: (typeof DEFAULT_ENVIRONMENTS)[number]) {
-    setEnvironment(preset.description);
-    // Use preset image if no generated image yet
-    if (!imageUrl) {
-      setImageUrl(preset.imageUrl);
+  async function handleSubmit() {
+    if (!name.trim() || !textPrompt.trim() || saving) return;
+    setSaving(true);
+    setError(null);
+
+    // If no generated image yet, use DiceBear fallback
+    const finalImage =
+      imageUrl ||
+      `https://api.dicebear.com/9.x/shapes/svg?seed=${encodeURIComponent(name)}`;
+
+    // Upload reference image to ImgBB if it's a new file
+    let finalReferenceUrl: string | null = null;
+    if (referenceFile) {
+      try {
+        const { url } = await api.uploadImage(referenceFile);
+        finalReferenceUrl = url;
+      } catch (err: any) {
+        console.error("Reference upload failed:", err);
+      }
+    } else if (referencePreview && !referencePreview.startsWith("blob:")) {
+      // Existing URL from loaded character
+      finalReferenceUrl = referencePreview;
+    }
+
+    try {
+      await onSubmit({
+        name: name.trim(),
+        textPrompt: textPrompt.trim(),
+        imageUrl: finalImage,
+        referenceImageUrl: finalReferenceUrl,
+      });
+    } catch (err: any) {
+      console.error("Save failed:", err);
+      setError(err.message || "Save failed");
+      setSaving(false);
     }
   }
 
-  function handleContinue() {
-    if (!environment.trim() || creating) return;
-    setCreating(true);
-    socket.emit("room:create", {
-      username: "Host",
-      environment: environment.trim(),
-      environmentImageUrl: imageUrl || undefined,
-    });
-  }
-
   return (
-    <div className="flex flex-col items-center min-h-screen p-6 gap-6 max-w-lg mx-auto">
-      <h2 className="text-2xl font-bold">Set Battle Arena</h2>
+    <div className="flex flex-col min-h-screen p-6 gap-6 max-w-lg mx-auto">
+      {/* Header */}
+      <div className="flex justify-between items-center w-full">
+        <h2 className="text-2xl font-bold">{title}</h2>
+        <Link
+          href={backHref}
+          className="text-sm text-gray-400 hover:text-white transition-colors"
+        >
+          Back
+        </Link>
+      </div>
 
       {/* Surprise Me */}
       <button
@@ -143,51 +182,67 @@ export function HostEnvironment() {
 
       {/* Error banner */}
       {error && (
-        <div className="w-full bg-red-900/50 border border-red-700 rounded-lg p-3 text-red-200 text-sm">
+        <div className="bg-red-900/50 border border-red-700 rounded-lg p-3 text-red-200 text-sm">
           {error}
         </div>
       )}
 
-      {/* Arena Image Preview */}
-      <div className="w-full aspect-video bg-gray-900 border border-gray-700 rounded-xl flex items-center justify-center overflow-hidden">
+      {/* Character Name */}
+      <div>
+        <label className="block text-sm text-gray-400 mb-2">
+          Character Name
+        </label>
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500"
+          placeholder="Zara the Pyromancer"
+          maxLength={50}
+        />
+      </div>
+
+      {/* Character Image Preview */}
+      <div className="w-full aspect-[9/16] max-h-[480px] bg-gray-900 border border-gray-700 rounded-xl flex items-center justify-center overflow-hidden">
         {generating ? (
           <div className="flex flex-col items-center gap-3">
             <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-            <p className="text-gray-400 text-sm">Generating arena...</p>
+            <p className="text-gray-400 text-sm">Generating character...</p>
           </div>
         ) : imageUrl ? (
           <img
             src={imageUrl}
-            alt="Battle arena"
-            className="w-full h-full object-cover"
+            alt={name}
+            className="w-full h-full object-contain"
           />
         ) : (
           <p className="text-gray-500 text-center px-4">
-            Describe your arena and click "Generate Arena" to preview
+            Describe your character and click "Generate Character" to see a
+            preview
           </p>
         )}
       </div>
 
-      {/* Environment Description */}
-      <div className="w-full">
+      {/* Text Prompt */}
+      <div>
         <label className="block text-sm text-gray-400 mb-2">
-          Describe the battle environment:
+          Describe your character
         </label>
         <textarea
-          value={environment}
+          value={textPrompt}
           onChange={(e) =>
-            setEnvironment(e.target.value.slice(0, ENVIRONMENT_CHAR_LIMIT))
+            setTextPrompt(e.target.value.slice(0, CHARACTER_PROMPT_CHAR_LIMIT))
           }
           className="w-full h-28 bg-gray-900 border border-gray-700 rounded-lg p-3 text-white resize-none focus:outline-none focus:border-indigo-500"
-          placeholder="A volcanic arena with rivers of molten lava..."
+          placeholder="A fierce fire mage wearing crimson robes with glowing embers swirling around her hands"
         />
         <p className="text-xs text-gray-500 mt-1">
-          {environment.length}/{ENVIRONMENT_CHAR_LIMIT}
+          {textPrompt.length}/{CHARACTER_PROMPT_CHAR_LIMIT}
         </p>
       </div>
 
       {/* Reference Image Upload */}
-      <div className="w-full">
+      <div>
         <label className="block text-sm text-gray-400 mb-2">
           Reference Image (optional)
         </label>
@@ -220,7 +275,7 @@ export function HostEnvironment() {
             </div>
           ) : (
             <p className="text-gray-500 text-sm">
-              Drag & drop a reference image, or click to browse
+              Drag & drop an image here, or click to browse
             </p>
           )}
           <input
@@ -231,53 +286,27 @@ export function HostEnvironment() {
             className="hidden"
           />
         </div>
+        <p className="text-xs text-gray-600 mt-1">
+          Upload a reference image for the AI to base your character on
+        </p>
       </div>
 
       {/* Generate Button */}
       <button
         onClick={handleGenerate}
-        disabled={!environment.trim() || generating}
+        disabled={!textPrompt.trim() || generating}
         className="w-full bg-gray-800 hover:bg-gray-700 disabled:bg-gray-800 disabled:text-gray-600 border border-gray-700 py-3 rounded-lg font-semibold transition-colors"
       >
-        {generating ? "Generating..." : "Generate Arena"}
+        {generating ? "Generating..." : "Generate Character"}
       </button>
 
-      {/* Presets */}
-      <div className="w-full">
-        <p className="text-sm text-gray-400 mb-3">Or choose a preset:</p>
-        <div className="grid grid-cols-2 gap-3">
-          {DEFAULT_ENVIRONMENTS.map((preset) => (
-            <button
-              key={preset.id}
-              onClick={() => selectPreset(preset)}
-              className={`bg-gray-900 border rounded-lg overflow-hidden text-left transition-colors hover:border-indigo-500 ${
-                environment === preset.description
-                  ? "border-indigo-500"
-                  : "border-gray-700"
-              }`}
-            >
-              <div className="aspect-video bg-gray-800">
-                <img
-                  src={preset.imageUrl}
-                  alt={preset.label}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <div className="p-2">
-                <p className="text-sm font-semibold truncate">{preset.label}</p>
-              </div>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Continue Button */}
+      {/* Submit Button */}
       <button
-        onClick={handleContinue}
-        disabled={!environment.trim() || creating}
+        onClick={handleSubmit}
+        disabled={!name.trim() || !textPrompt.trim() || saving}
         className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-700 disabled:text-gray-500 py-3 rounded-lg font-semibold text-lg transition-colors"
       >
-        {creating ? "Creating room..." : "Continue"}
+        {saving ? submittingLabel : submitLabel}
       </button>
     </div>
   );
