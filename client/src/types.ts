@@ -67,6 +67,14 @@ export interface BattleState {
   battleSummary: string;
 }
 
+export type ActionCategory = "attack" | "magic" | "defend" | "heal";
+
+export interface ActionChoice {
+  label: string;
+  description: string;
+  category: ActionCategory;
+}
+
 export interface PendingAction {
   actionText: string;
   submittedAt: string;
@@ -90,8 +98,8 @@ export interface BattleResolution {
   videoPrompt: string;
   narratorScript: string;
   battleSummaryUpdate: string;
-  player1ActionChoices: string[];
-  player2ActionChoices: string[];
+  player1ActionChoices: ActionChoice[];
+  player2ActionChoices: ActionChoice[];
   isVictory: boolean;
   winnerId: string | null;
   victoryNarration: string | null;
@@ -112,8 +120,8 @@ export interface Battle {
     player2: PendingAction | null;
   };
   currentActionChoices: {
-    player1: string[];
-    player2: string[];
+    player1: ActionChoice[];
+    player2: ActionChoice[];
   };
   resolutionHistory: BattleResolution[];
   winnerId: string | null;
@@ -157,7 +165,7 @@ export interface ServerEvents {
     character: Character;
   }) => void;
   "battle:start": (data: { battle: Battle }) => void;
-  "battle:request_actions": (data: { timeLimit: number; actionChoices: string[] }) => void;
+  "battle:request_actions": (data: { timeLimit: number; actionChoices: ActionChoice[] }) => void;
   "battle:narrator_audio": (data: { narratorScript: string }) => void;
   "battle:action_received": (data: { playerId: string }) => void;
   "battle:action_generated": (data: {

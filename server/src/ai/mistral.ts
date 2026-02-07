@@ -1,5 +1,5 @@
 import { Mistral } from "@mistralai/mistralai";
-import type { Battle, BattleResolution, Character } from "../types.js";
+import type { ActionChoice, Battle, BattleResolution, Character } from "../types.js";
 import { placeholderResolve } from "../managers/BattleManager.js";
 
 const client = new Mistral({ apiKey: process.env.MISTRAL_API_KEY! });
@@ -76,14 +76,12 @@ Example tone: "Oh, that is BRILLIANT from Zara! She's pulled the lava right from
 
 ## ACTION CHOICES (4 per player)
 
-Generate 4 distinct tactical options for each player's NEXT round. Each choice: 1-2 sentences, specific to current battle state and character. Offer a natural spread of options:
-- One aggressive/offensive move
-- One defensive/protective move
-- One creative/environmental move
-- One high-risk high-reward gambit
+Generate 4 distinct tactical options for each player's NEXT round. Each choice is an object with:
+- "label": Short punchy name (2-10 words max)
+- "description": Full action description (1-2 sentences)
+- "category": exactly one of "attack", "magic", "defend", "heal"
 
-Do NOT label them with categories — just write the action text. Keep them punchy and exciting.
-Action choices must account for each player's current condition and HP level.
+Include exactly one action per category. Make them specific to the current battle state, character abilities, and HP level.
 
 ## BATTLE MEMORY
 
@@ -122,8 +120,18 @@ Return ONLY valid JSON with these exact fields:
   "videoPrompt": "2-3 cinematic sentences with character fingerprint details and degradation",
   "narratorScript": "3-5 sentences of British sports commentary",
   "battleSummaryUpdate": "2-3 sentence recap of this round",
-  "player1ActionChoices": ["Action 1", "Action 2", "Action 3", "Action 4"],
-  "player2ActionChoices": ["Action 1", "Action 2", "Action 3", "Action 4"],
+  "player1ActionChoices": [
+    { "label": "Flame Slash", "description": "Swing a blazing sword at the opponent", "category": "attack" },
+    { "label": "Arcane Volley", "description": "Launch a barrage of magical projectiles", "category": "magic" },
+    { "label": "Iron Guard", "description": "Raise a protective barrier of hardened earth", "category": "defend" },
+    { "label": "Second Wind", "description": "Channel healing energy to recover from wounds", "category": "heal" }
+  ],
+  "player2ActionChoices": [
+    { "label": "Crushing Blow", "description": "Deliver a devastating overhead strike", "category": "attack" },
+    { "label": "Shadow Bolt", "description": "Hurl a bolt of dark energy at the foe", "category": "magic" },
+    { "label": "Evasive Roll", "description": "Dodge sideways and prepare a counter-attack", "category": "defend" },
+    { "label": "Drain Life", "description": "Siphon the opponent's vitality to heal yourself", "category": "heal" }
+  ],
   "isVictory": false,
   "winnerId": null,
   "victoryNarration": null,
@@ -183,6 +191,15 @@ Return your response as JSON matching the expected format.
 `;
 }
 
+function parseActionChoices(raw: unknown): ActionChoice[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.slice(0, 4).map((a: any) => ({
+    label: String(a.label || "Unknown Action"),
+    description: String(a.description || a.label || "Attack!"),
+    category: (["attack", "magic", "defend", "heal"].includes(a.category) ? a.category : "attack") as ActionChoice["category"],
+  }));
+}
+
 // ── AI Engine: single-pass combat resolution (mistral-large) ───
 
 export async function runEngine(
@@ -227,8 +244,8 @@ export async function runEngine(
       videoPrompt: parsed.videoPrompt ?? `${battle.player1.character.name} and ${battle.player2.character.name} clash in the arena.`,
       narratorScript: parsed.narratorScript ?? parsed.interpretation ?? "The fighters exchange blows!",
       battleSummaryUpdate: parsed.battleSummaryUpdate ?? "",
-      player1ActionChoices: Array.isArray(parsed.player1ActionChoices) ? parsed.player1ActionChoices.slice(0, 4) : [],
-      player2ActionChoices: Array.isArray(parsed.player2ActionChoices) ? parsed.player2ActionChoices.slice(0, 4) : [],
+      player1ActionChoices: parseActionChoices(parsed.player1ActionChoices),
+      player2ActionChoices: parseActionChoices(parsed.player2ActionChoices),
       isVictory: parsed.isVictory ?? false,
       winnerId: parsed.winnerId ?? null,
       victoryNarration: parsed.victoryNarration ?? null,
@@ -250,7 +267,7 @@ export async function generateInitialActionChoices(
   character: Character,
   opponent: Character,
   environment: string,
-): Promise<string[]> {
+): Promise<ActionChoice[]> {
   const appearance = character.visualFingerprint || character.textPrompt;
   const opponentAppearance = opponent.visualFingerprint || opponent.textPrompt;
 
@@ -260,7 +277,12 @@ export async function generateInitialActionChoices(
       messages: [
         {
           role: "system",
-          content: `Generate 4 opening battle actions for a character. Return ONLY a JSON object with an "actions" key containing an array of 4 strings, each 1-2 sentences. Include: one aggressive, one defensive, one creative, one wild gambit. No category labels — just the action text. Make them specific to the character and opponent.`,
+          content: `Generate 4 opening battle actions for a character. Return ONLY a JSON object with an "actions" key containing an array of 4 objects. Each object must have:
+- "label": Short punchy name (2-10 words max)
+- "description": Full action description (1-2 sentences)
+- "category": exactly one of "attack", "magic", "defend", "heal"
+
+Include exactly one action per category. Make them specific to the character and opponent.`,
         },
         {
           role: "user",
@@ -269,7 +291,7 @@ export async function generateInitialActionChoices(
       ],
       responseFormat: { type: "json_object" },
       temperature: 0.9,
-      maxTokens: 400,
+      maxTokens: 600,
     });
 
     const content = response.choices?.[0]?.message?.content;
@@ -280,17 +302,22 @@ export async function generateInitialActionChoices(
     const parsed = JSON.parse(content);
     const actions = parsed.actions;
     if (Array.isArray(actions) && actions.length >= 4) {
+      const validated = actions.slice(0, 4).map((a: any) => ({
+        label: String(a.label || "Unknown Action"),
+        description: String(a.description || a.label || "Attack!"),
+        category: (["attack", "magic", "defend", "heal"].includes(a.category) ? a.category : "attack") as ActionChoice["category"],
+      }));
       console.log(`[Engine] Initial action choices generated for ${character.name}`);
-      return actions.slice(0, 4);
+      return validated;
     }
     throw new Error("Invalid actions array");
   } catch (err) {
     console.error(`[Engine] Initial action choices FAILED for ${character.name}, using fallback:`, err);
     return [
-      `Launch a powerful opening strike against ${opponent.name}!`,
-      `Take a defensive stance and study ${opponent.name}'s movements carefully.`,
-      `Use the environment to gain a tactical advantage before engaging.`,
-      `Channel everything into one devastating surprise attack!`,
+      { label: "Opening Strike", description: `Launch a powerful opening strike against ${opponent.name}!`, category: "attack" },
+      { label: "Arcane Blast", description: `Channel magical energy into a devastating spell aimed at ${opponent.name}.`, category: "magic" },
+      { label: "Defensive Stance", description: `Take a defensive stance and study ${opponent.name}'s movements carefully.`, category: "defend" },
+      { label: "Restorative Focus", description: `Channel inner energy to strengthen yourself before the battle intensifies.`, category: "heal" },
     ];
   }
 }

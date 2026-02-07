@@ -1,6 +1,6 @@
 import type { Server, Socket } from "socket.io";
 import type Database from "better-sqlite3";
-import type { ClientEvents, ServerEvents, Character } from "../types.js";
+import type { ClientEvents, ServerEvents, Character, ActionChoice } from "../types.js";
 import { roomManager } from "../managers/RoomManager.js";
 import { createBattle, applyResolution, checkVictory } from "../managers/BattleManager.js";
 import { runEngine, generateActionSuggestion, generateInitialActionChoices } from "../ai/mistral.js";
@@ -284,8 +284,8 @@ export function registerSocketHandlers(io: IO, db: Database.Database): void {
           videoPrompt: `${winner.character.name} stands victorious as ${forfeiter.character.name} concedes defeat.`,
           narratorScript: forfeitNarration,
           battleSummaryUpdate: `${forfeiter.character.name} forfeited. ${winner.character.name} wins.`,
-          player1ActionChoices: [],
-          player2ActionChoices: [],
+          player1ActionChoices: [] as ActionChoice[],
+          player2ActionChoices: [] as ActionChoice[],
           isVictory: true,
           winnerId: winner.playerId,
           victoryNarration: forfeitNarration,

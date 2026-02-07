@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
 import { ACTION_CHAR_LIMIT } from "../types";
-import type { Battle as BattleType, BattleResolution } from "../types";
+import type { ActionCategory, ActionChoice, Battle as BattleType, BattleResolution } from "../types";
 import { socket, connectSocket } from "../lib/socket";
 import { useGameStore } from "../stores/gameStore";
 
@@ -16,6 +16,9 @@ export function Battle() {
   const [winner, setWinner] = useState<string | null>(null);
   const [generatingAction, setGeneratingAction] = useState(false);
   const [showForfeitConfirm, setShowForfeitConfirm] = useState(false);
+  const [actionChoices, setActionChoices] = useState<ActionChoice[]>([]);
+  const [showCustomInput, setShowCustomInput] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<ActionCategory | null>(null);
 
   const battle = useGameStore((s) => s.battle);
   const playerSlot = useGameStore((s) => s.playerSlot);
@@ -43,6 +46,10 @@ export function Battle() {
       setResolving(true);
     }
 
+    function onRequestActions({ actionChoices }: { timeLimit: number; actionChoices: ActionChoice[] }) {
+      setActionChoices(actionChoices);
+    }
+
     function onRoundComplete({ battle, resolution }: { battle: BattleType; resolution: BattleResolution }) {
       setBattle(battle);
       setLastResolution(resolution);
@@ -50,6 +57,9 @@ export function Battle() {
       setSubmitted(false);
       setOpponentSubmitted(false);
       setAction("");
+      setActionChoices([]);
+      setShowCustomInput(false);
+      setSelectedCategory(null);
     }
 
     function onBattleEnd({ winnerId, battle, finalResolution }: { winnerId: string; battle: BattleType; finalResolution: BattleResolution }) {
@@ -70,6 +80,7 @@ export function Battle() {
     socket.on("battle:round_complete", onRoundComplete);
     socket.on("battle:end", onBattleEnd);
     socket.on("battle:action_generated", onActionGenerated);
+    socket.on("battle:request_actions", onRequestActions);
 
     return () => {
       socket.off("battle:start", onBattleStart);
@@ -78,6 +89,7 @@ export function Battle() {
       socket.off("battle:round_complete", onRoundComplete);
       socket.off("battle:end", onBattleEnd);
       socket.off("battle:action_generated", onActionGenerated);
+      socket.off("battle:request_actions", onRequestActions);
     };
   }, [myPlayer, setBattle]);
 
@@ -90,6 +102,14 @@ export function Battle() {
     if (!action.trim() || submitted) return;
     setSubmitted(true);
     socket.emit("battle:action", { roomId: roomId!, actionText: action.trim() });
+  }
+
+  function handleButtonSubmit(choice: ActionChoice) {
+    if (submitted) return;
+    setAction(choice.description);
+    setSubmitted(true);
+    setSelectedCategory(choice.category);
+    socket.emit("battle:action", { roomId: roomId!, actionText: choice.description });
   }
 
   function handleForfeit() {
@@ -106,54 +126,40 @@ export function Battle() {
   }
 
   const myHpPct = (myPlayer.currentHp / myPlayer.maxHp) * 100;
-  const opHpPct = (opponent.currentHp / opponent.maxHp) * 100;
   const iWon = winner === myPlayer.playerId;
+
+  const archetypeStyle: Record<ActionCategory, { emoji: string; bg: string; border: string; selectedBorder: string }> = {
+    attack: { emoji: "⚔️", bg: "bg-red-950", border: "border-red-700 hover:border-red-500", selectedBorder: "border-red-500 bg-red-950" },
+    magic:  { emoji: "✨", bg: "bg-blue-950", border: "border-blue-700 hover:border-blue-500", selectedBorder: "border-blue-500 bg-blue-950" },
+    defend: { emoji: "🛡️", bg: "bg-yellow-950", border: "border-yellow-700 hover:border-yellow-500", selectedBorder: "border-yellow-500 bg-yellow-950" },
+    heal:   { emoji: "💚", bg: "bg-green-950", border: "border-green-700 hover:border-green-500", selectedBorder: "border-green-500 bg-green-950" },
+  };
 
   return (
     <div className="flex flex-col min-h-screen p-4 gap-4 max-w-lg mx-auto">
-      {/* HP bars */}
-      <div className="flex justify-between items-start">
-        <div className="flex-1">
-          <p className="font-semibold text-sm">{myPlayer.character.name} (You)</p>
-          <div className="w-full h-3 bg-gray-800 rounded-full overflow-hidden mt-1">
-            <div
-              className="h-full bg-green-500 rounded-full transition-all duration-500"
-              style={{ width: `${myHpPct}%` }}
-            />
-          </div>
-          <p className="text-xs text-gray-400 mt-1">
-            {myPlayer.currentHp}/{myPlayer.maxHp} HP
-          </p>
-        </div>
-        <div className="px-3 pt-2 text-gray-600 font-bold">VS</div>
-        <div className="flex-1 text-right">
-          <p className="font-semibold text-sm">{opponent.character.name}</p>
-          <div className="w-full h-3 bg-gray-800 rounded-full overflow-hidden mt-1">
-            <div
-              className="h-full bg-red-500 rounded-full transition-all duration-500"
-              style={{ width: `${opHpPct}%` }}
-            />
-          </div>
-          <p className="text-xs text-gray-400 mt-1">
-            {opponent.currentHp}/{opponent.maxHp} HP
-          </p>
-        </div>
-      </div>
-
-      {/* Battle state */}
-      <div className="bg-gray-900 border border-gray-800 rounded-lg p-3 text-sm">
-        <p className="text-gray-300">{battle.currentState.environmentDescription}</p>
-        {lastResolution && (
-          <div className="mt-2 pt-2 border-t border-gray-800">
-            <p className="text-indigo-300 text-xs font-semibold mb-1">Last round:</p>
-            <p className="text-gray-400 text-xs">{lastResolution.interpretation}</p>
-            {lastResolution.diceRolls.map((roll, i) => (
-              <p key={i} className="text-gray-500 text-xs">
-                {roll.purpose}: {roll.formula} = {roll.result}
-              </p>
-            ))}
-          </div>
+      {/* Player header: profile image + name + HP */}
+      <div className="flex items-center gap-3 bg-gray-900 border border-gray-800 rounded-lg p-3">
+        {myPlayer.character.imageUrl && (
+          <img
+            src={myPlayer.character.imageUrl}
+            alt={myPlayer.character.name}
+            className="w-12 h-12 rounded-full object-cover border-2 border-gray-700"
+          />
         )}
+        <div className="flex-1 min-w-0">
+          <p className="font-bold text-sm truncate">{myPlayer.character.name}</p>
+          <div className="flex items-center gap-2 mt-1">
+            <div className="flex-1 h-3 bg-gray-800 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-green-500 rounded-full transition-all duration-500"
+                style={{ width: `${myHpPct}%` }}
+              />
+            </div>
+            <span className="text-xs text-gray-400 whitespace-nowrap font-medium">
+              {myPlayer.currentHp}/{myPlayer.maxHp} HP
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* Winner overlay */}
@@ -178,20 +184,95 @@ export function Battle() {
         </div>
       ) : (
         <>
-          {/* Action input */}
-          <div className="flex-1 flex flex-col gap-3">
-            <label className="text-sm text-gray-400">Describe your action:</label>
-            <textarea
-              value={action}
-              onChange={(e) => setAction(e.target.value.slice(0, ACTION_CHAR_LIMIT))}
-              disabled={submitted}
-              className="flex-1 min-h-[120px] bg-gray-900 border border-gray-700 rounded-lg p-3 text-white resize-none focus:outline-none focus:border-indigo-500 disabled:opacity-50"
-              placeholder="I channel all my remaining power into a desperate final inferno..."
-            />
-            <p className="text-xs text-gray-500">
-              {action.length}/{ACTION_CHAR_LIMIT}
-            </p>
-          </div>
+          {/* Action choices grid or freeform fallback */}
+          {actionChoices.length > 0 ? (
+            <div className="flex-1 flex flex-col gap-3">
+              <p className="text-sm text-gray-400">Choose your action:</p>
+              <div className={`grid grid-cols-2 gap-3 ${submitted ? "opacity-50 pointer-events-none" : ""}`}>
+                {actionChoices.map((choice, i) => {
+                  // Handle legacy plain-string choices from old server data
+                  const normalized: ActionChoice = typeof choice === "string"
+                    ? { label: choice as string, description: choice as string, category: (["attack", "magic", "defend", "heal"] as const)[i % 4] }
+                    : choice;
+                  const style = archetypeStyle[normalized.category] ?? archetypeStyle.attack;
+                  const isSelected = submitted && selectedCategory === normalized.category;
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => handleButtonSubmit(normalized)}
+                      disabled={submitted}
+                      className={`${style.bg} border-2 rounded-lg p-3 text-left transition-all active:scale-95 ${
+                        isSelected ? style.selectedBorder : style.border
+                      }`}
+                    >
+                      <span className="text-xl leading-none">{style.emoji}</span>
+                      <p className="font-bold text-sm mt-1 text-white">{normalized.label}</p>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Custom action card */}
+              {!showCustomInput ? (
+                <button
+                  onClick={() => setShowCustomInput(true)}
+                  disabled={submitted}
+                  className="w-full bg-gray-900 border-2 border-gray-700 border-dashed rounded-lg p-3 text-sm text-gray-400 hover:border-gray-500 hover:text-gray-300 transition-all disabled:pointer-events-none"
+                >
+                  ✏️ Write a custom action...
+                </button>
+              ) : (
+                <div className={`bg-gray-900 border-2 border-gray-700 rounded-lg p-3 ${submitted ? "opacity-50 pointer-events-none" : ""}`}>
+                  <textarea
+                    value={action}
+                    onChange={(e) => setAction(e.target.value.slice(0, ACTION_CHAR_LIMIT))}
+                    disabled={submitted}
+                    rows={2}
+                    className="w-full bg-transparent text-white text-sm resize-none focus:outline-none disabled:opacity-50 placeholder-gray-600"
+                    placeholder="Describe your custom action..."
+                    autoFocus
+                  />
+                  <div className="flex justify-end mt-2">
+                    <button
+                      onClick={handleSubmit}
+                      disabled={!action.trim() || submitted}
+                      className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-700 disabled:text-gray-500 px-5 py-1.5 rounded-lg font-semibold text-sm transition-colors"
+                    >
+                      Send
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            /* Fallback: freeform only (no choices received yet) */
+            <div className="flex-1 flex flex-col gap-3">
+              <label className="text-sm text-gray-400">Describe your action:</label>
+              <textarea
+                value={action}
+                onChange={(e) => setAction(e.target.value.slice(0, ACTION_CHAR_LIMIT))}
+                disabled={submitted}
+                className="flex-1 min-h-[120px] bg-gray-900 border border-gray-700 rounded-lg p-3 text-white resize-none focus:outline-none focus:border-indigo-500 disabled:opacity-50"
+                placeholder="I channel all my remaining power into a desperate final inferno..."
+              />
+              <div className="flex gap-3">
+                <button
+                  onClick={handleGenerateAction}
+                  disabled={submitted || generatingAction || !!winner}
+                  className="bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-600 py-3 px-4 rounded-lg font-semibold transition-colors whitespace-nowrap"
+                >
+                  {generatingAction ? "Generating..." : "✦ Generate Action"}
+                </button>
+                <button
+                  onClick={handleSubmit}
+                  disabled={!action.trim() || submitted}
+                  className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-700 disabled:text-gray-500 py-3 rounded-lg font-semibold text-lg transition-colors"
+                >
+                  {submitted ? "Waiting for opponent..." : "Submit Action"}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Status indicators */}
           <div className="flex gap-4 text-xs">
@@ -203,23 +284,11 @@ export function Battle() {
             </span>
           </div>
 
-          {/* Actions */}
-          <div className="flex gap-3">
-            <button
-              onClick={handleGenerateAction}
-              disabled={submitted || generatingAction || !!winner}
-              className="bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-600 py-3 px-4 rounded-lg font-semibold transition-colors whitespace-nowrap"
-            >
-              {generatingAction ? "Generating..." : "✦ Generate Action"}
-            </button>
-            <button
-              onClick={handleSubmit}
-              disabled={!action.trim() || submitted}
-              className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-700 disabled:text-gray-500 py-3 rounded-lg font-semibold text-lg transition-colors"
-            >
-              {submitted ? "Waiting for opponent..." : "Submit Action"}
-            </button>
-          </div>
+          {submitted && (
+            <p className="text-center text-indigo-400 animate-pulse text-sm">
+              Waiting for opponent...
+            </p>
+          )}
 
           {/* Forfeit */}
           {!showForfeitConfirm ? (
