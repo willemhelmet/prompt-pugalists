@@ -35,13 +35,13 @@
 2. **Player Join**: 2 players join via mobile devices using the room code
 3. **Character Selection**: Players select from their created characters (AI-generated images)
 4. **Battle**: Players submit natural language action prompts simultaneously
-5. **AI Resolution**: Server uses ChatGPT to adjudicate actions and generate battle narrative
+5. **AI Resolution**: Server uses Mistral AI to adjudicate actions and generate battle narrative
 6. **Video Generation**: Reactor LiveCore creates real-time video of the battle scene
 7. **Repeat**: Battle continues until one player's HP reaches 0
 
 ### Key Innovation
 
-**Natural Language Combat**: Instead of rigid spell/action menus, players describe what they want to do in plain English. The AI interprets intent, resolves outcomes using dice rolls, and generates cinematic video prompts.
+**Natural Language Combat**: Instead of rigid spell/action menus, players describe what they want to do in plain English. Mistral AI interprets intent, resolves outcomes using dice rolls, and generates cinematic video prompts.
 
 **AI Character Generation**: Characters are created using Decart's AI image generation, allowing players to describe their fighter or upload reference images.
 
@@ -52,7 +52,7 @@
 ### Creative Freedom Over Structure
 
 - **No Rigid Types**: Damage types, spell effects, and abilities are freeform strings, not enums
-- **AI Interpretation**: ChatGPT interprets player intent through natural language alone
+- **AI Interpretation**: Mistral AI interprets player intent through natural language alone
 - **Minimal Constraints**: Players can attempt anything; success depends on stats and dice rolls
 - **Single Decisive Round**: No complex multi-round state tracking; focus on dramatic moment-to-moment combat
 
@@ -76,8 +76,8 @@
 │  Video Out  │         │              │         └─────────────┘
 └─────────────┘         └──────────────┘
                               ▲                   ┌─────────────┐
-                              │                   │  ChatGPT    │
-                              │            HTTP   │    API      │
+                              │                   │  Mistral    │
+                              │            HTTP   │    AI       │
                               │         ◄────────►└─────────────┘
                               │
                     ┌─────────┴─────────┐
@@ -120,7 +120,7 @@
 - **HTTP**: Express for REST endpoints
 - **State**: In-memory only (hackathon simplicity)
 - **AI Integration**:
-  - OpenAI SDK (ChatGPT API for combat adjudication)
+  - Mistral AI SDK (combat adjudication & action generation)
   - Reactor SDK (LiveCore video generation)
   - Decart API (AI image generation for characters)
 
@@ -135,7 +135,7 @@
 
 #### AI Services
 
-- **ChatGPT API**: GPT-4-turbo for combat resolution
+- **Mistral AI**: `mistral-large-latest` for combat resolution, `mistral-medium-latest` for action generation
 - **Reactor LiveCore**: Real-time video generation
 - **Decart**: AI image generation for characters (hackathon sponsor)
 
@@ -754,7 +754,7 @@ async function processBattleRound(
   // 1. Notify resolving
   io.to(roomId).emit("battle:resolving", {});
 
-  // 2. Get ChatGPT resolution
+  // 2. Get Mistral AI resolution
   const resolution = await resolveCombat(battle, action1, action2);
 
   // 3. Apply HP changes
@@ -851,8 +851,8 @@ Make it interesting and different from what they've done before.
 Return ONLY the action text, no preamble.
 `;
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4-turbo",
+  const response = await mistral.chat.complete({
+    model: "mistral-medium-latest",
     messages: [
       {
         role: "system",
@@ -861,7 +861,7 @@ Return ONLY the action text, no preamble.
       { role: "user", content: prompt },
     ],
     temperature: 0.9, // High creativity
-    max_tokens: 150,
+    maxTokens: 150,
   });
 
   return response.choices[0].message.content!.trim();
@@ -872,7 +872,7 @@ Return ONLY the action text, no preamble.
 
 ## Combat Resolution
 
-### ChatGPT Integration
+### Mistral AI Integration
 
 ```typescript
 async function resolveCombat(
@@ -882,8 +882,8 @@ async function resolveCombat(
 ): Promise<BattleResolution> {
   const prompt = buildCombatPrompt(battle, action1, action2);
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4-turbo",
+  const response = await mistral.chat.complete({
+    model: "mistral-large-latest",
     messages: [
       {
         role: "system",
@@ -894,7 +894,7 @@ async function resolveCombat(
         content: prompt,
       },
     ],
-    response_format: { type: "json_object" },
+    responseFormat: { type: "json_object" },
     temperature: 0.8, // Higher temp for creative outcomes
   });
 
@@ -1318,7 +1318,7 @@ CREATE INDEX idx_battles_room_id ON battles(room_id);
 "I create a shield of ice around myself and launch icicle shards through their fire wall!"
 ```
 
-**ChatGPT Resolution:**
+**Mistral AI Resolution:**
 
 ```json
 {
@@ -1399,7 +1399,7 @@ Frame 0: "A towering wall of roaring flames erupts across the arena as Zara step
 "I shatter my ice shield into a thousand shards and send them all flying at Zara!"
 ```
 
-**ChatGPT Resolution:**
+**Mistral AI Resolution:**
 
 ```json
 {
@@ -1546,7 +1546,7 @@ These serve as examples and starting points for new players.
 
 #### Week 5-6: Combat Core
 
-- [ ] ChatGPT API integration
+- [ ] Mistral AI API integration
 - [ ] Combat resolution logic
 - [ ] System prompt design + testing
 - [ ] Action submission UI (mobile)
@@ -1606,7 +1606,7 @@ These serve as examples and starting points for new players.
 
 - **WebSocket latency**: <200ms (acceptable for local play)
 - **Action submission to resolution**: <20s
-  - ChatGPT response: 3-7s
+  - Mistral AI response: 3-7s
   - Reactor video generation: 10-15s (per 240 frames)
 - **Video playback**: Smooth 30fps, 720p minimum
 - **Concurrent battles**: Support 10+ simultaneously (sufficient for demo)
@@ -1638,7 +1638,7 @@ These serve as examples and starting points for new players.
 
 **Server-Side**:
 
-- ChatGPT timeout: 10s, then return generic "epic clash" result
+- Mistral AI timeout: 10s, then return generic "epic clash" result
 - Decart timeout: 15s, then use placeholder image
 - Reactor failure: Show error to host, allow manual retry
 - Player disconnect: 30s grace period, then forfeit
@@ -1670,14 +1670,11 @@ These serve as examples and starting points for new players.
 
 ### AI API Costs (per battle, ~5 rounds avg for 50 HP)
 
-**ChatGPT API** (GPT-4-turbo):
+**Mistral AI** (mistral-large-latest + mistral-medium-latest):
 
-- Input tokens: ~2000 tokens/round × 5 rounds = 10,000 tokens
-- Output tokens: ~500 tokens/round × 5 rounds = 2,500 tokens
-- Cost: ($0.01/1k input + $0.03/1k output)
-  - Input: $0.10
-  - Output: $0.075
-  - **Total per battle: ~$0.175**
+- Combat resolution (mistral-large): ~2000 input + ~500 output tokens/round × 5 rounds
+- Action generation (mistral-medium): ~500 input + ~150 output tokens per suggestion
+- Estimated **total per battle: ~$0.10-0.20**
 
 **Reactor LiveCore**:
 
@@ -1714,7 +1711,7 @@ These serve as examples and starting points for new players.
 **Performance**:
 
 - Average round resolution time
-- ChatGPT API latency
+- Mistral AI API latency
 - Reactor video generation time
 - WebSocket message latency
 
@@ -1741,9 +1738,9 @@ interface BattleLog {
   timestamp: Date;
   player1Action: string;
   player2Action: string;
-  chatGptPrompt: string;
-  chatGptResponse: string;
-  chatGptLatency: number;
+  mistralPrompt: string;
+  mistralResponse: string;
+  mistralLatency: number;
   reactorPrompt: string;
   reactorLatency: number;
   resolution: BattleResolution;
@@ -1766,7 +1763,7 @@ interface BattleLog {
 
 - WebSocket message flow
 - Room creation/joining
-- ChatGPT API mocking
+- Mistral AI API mocking
 - SQLite operations
 - Character CRUD operations
 
@@ -1816,7 +1813,7 @@ npm run dev
 **Environment Variables**:
 
 ```
-OPENAI_API_KEY=...
+MISTRAL_API_KEY=...
 REACTOR_API_KEY=...
 DATABASE_PATH=./game.db
 PORT=3000
@@ -1904,7 +1901,7 @@ PORT=3000
 
 ## Conclusion
 
-This specification provides a comprehensive blueprint for building **Prompt Pugilists** - a real-time AI battle game built for a hackathon that prioritizes creative freedom and natural language interaction. By leveraging ChatGPT for combat adjudication, Reactor LiveCore for cinematic video generation, and Decart for character creation, players can experience truly dynamic, emergent gameplay where imagination is the only limit.
+This specification provides a comprehensive blueprint for building **Prompt Pugilists** - a real-time AI battle game built for a hackathon that prioritizes creative freedom and natural language interaction. By leveraging Mistral AI for combat adjudication, Reactor LiveCore for cinematic video generation, and Decart for character creation, players can experience truly dynamic, emergent gameplay where imagination is the only limit.
 
 The Jackbox-style local multiplayer model overcomes Reactor's single-stream limitation while creating a social, party-game atmosphere. The simplified single-image character system powered by Decart removes complexity, allowing players to focus entirely on creative storytelling and dramatic battles.
 
@@ -1919,7 +1916,7 @@ The Jackbox-style local multiplayer model overcomes Reactor's single-stream limi
 
 **Hackathon Advantages**:
 
-- Multiple sponsor technologies (Reactor, Decart, ChatGPT)
+- Multiple sponsor technologies (Reactor, Decart, Mistral)
 - Novel gameplay mechanic (natural language combat)
 - Great demo potential (visual, exciting, easy to understand)
 - Technically ambitious but achievable in 48-72 hours
@@ -1941,4 +1938,4 @@ The Jackbox-style local multiplayer model overcomes Reactor's single-stream limi
 **Document Version**: 3.2  
 **Last Updated**: February 6, 2026  
 **Hackathon**: TBD  
-**Sponsors**: Reactor, Decart, OpenAI
+**Sponsors**: Reactor, Decart, Mistral

@@ -67,7 +67,7 @@ export function checkVictory(battle: Battle): string | null {
   return null;
 }
 
-// Placeholder resolution until ChatGPT is integrated
+// Placeholder resolution used as fallback when Mistral API fails
 function rollDice(formula: string): { result: number; modifier: number } {
   // Parse "1d20+3" style formulas
   const match = formula.match(/(\d+)d(\d+)(?:\+(\d+))?/);

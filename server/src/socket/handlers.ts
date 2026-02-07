@@ -2,7 +2,8 @@ import type { Server, Socket } from "socket.io";
 import type Database from "better-sqlite3";
 import type { ClientEvents, ServerEvents, Character } from "../types.js";
 import { roomManager } from "../managers/RoomManager.js";
-import { createBattle, applyResolution, checkVictory, placeholderResolve } from "../managers/BattleManager.js";
+import { createBattle, applyResolution, checkVictory } from "../managers/BattleManager.js";
+import { resolveCombat, generateActionSuggestion } from "../ai/mistral.js";
 
 type IO = Server<ClientEvents, ServerEvents>;
 type ClientSocket = Socket<ClientEvents, ServerEvents>;
@@ -129,7 +130,7 @@ export function registerSocketHandlers(io: IO, db: Database.Database): void {
 
     // ── Battle events ────────────────────────────────────────
 
-    socket.on("battle:action", ({ roomId, actionText }) => {
+    socket.on("battle:action", async ({ roomId, actionText }) => {
       const room = roomManager.getRoom(roomId);
       if (!room?.battle) return;
 
@@ -152,8 +153,7 @@ export function registerSocketHandlers(io: IO, db: Database.Database): void {
         const action1 = room.battle.pendingActions.player1.actionText;
         const action2 = room.battle.pendingActions.player2.actionText;
 
-        // TODO: replace with ChatGPT resolution
-        const resolution = placeholderResolve(room.battle, action1, action2);
+        const resolution = await resolveCombat(room.battle, action1, action2);
 
         applyResolution(room.battle, resolution);
 
@@ -184,14 +184,19 @@ export function registerSocketHandlers(io: IO, db: Database.Database): void {
       }
     });
 
-    socket.on("battle:generate_action", ({ roomId }) => {
-      // TODO: generate action suggestion via ChatGPT
+    socket.on("battle:generate_action", async ({ roomId }) => {
+      const room = roomManager.getRoom(roomId);
       const player = roomManager.getPlayerByConnectionId(roomId, socket.id);
-      if (!player) return;
+      if (!player || !room?.battle) return;
+
+      const suggestedAction = await generateActionSuggestion(
+        room.battle,
+        player.playerId,
+      );
 
       socket.emit("battle:action_generated", {
         playerId: player.playerId,
-        suggestedAction: "TODO: AI-generated action",
+        suggestedAction,
       });
     });
 

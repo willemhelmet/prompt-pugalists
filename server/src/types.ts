@@ -166,7 +166,7 @@ export interface ServerEvents {
 // Constants
 // ============================================================
 
-export const MAX_HP = 50;
+export const MAX_HP = 20;
 export const ACTION_CHAR_LIMIT = 500;
 export const ENVIRONMENT_CHAR_LIMIT = 300;
 export const CHARACTER_PROMPT_CHAR_LIMIT = 500;
