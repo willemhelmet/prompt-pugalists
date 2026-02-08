@@ -4,41 +4,68 @@ import { socket, connectSocket } from "../lib/socket";
 import { useGameStore } from "../stores/gameStore";
 import { ReactorVideoSection } from "../components/ReactorVideoSection";
 import { useAnnouncer } from "../hooks/useAnnouncer";
-import type { PlayerConnection, Battle, BattleResolution, Character, SelectedCharacter } from "../types";
+import type {
+  PlayerConnection,
+  Battle,
+  BattleResolution,
+  Character,
+  SelectedCharacter,
+} from "../types";
 
 export function HostDisplay() {
   const { roomId } = useParams<{ roomId: string }>();
   const [, navigate] = useLocation();
   const { room, player1, player2, setPlayer } = useGameStore();
   const [battle, setBattle] = useState<Battle | null>(null);
-  const [lastResolution, setLastResolution] = useState<BattleResolution | null>(null);
+  const [lastResolution, setLastResolution] =
+    useState<BattleResolution | null>(null);
   const [resolving, setResolving] = useState(false);
   const [winner, setWinner] = useState<string | null>(null);
-  const [selectedCharacters, setSelectedCharacters] = useState<SelectedCharacter[]>([]);
+  const [selectedCharacters, setSelectedCharacters] = useState<
+    SelectedCharacter[]
+  >([]);
   const arenaAnnouncedRef = useRef(false);
-  const { announce, muted, toggleMute, isSpeaking, available } = useAnnouncer();
+  const { announce, muted, toggleMute, isSpeaking, available } =
+    useAnnouncer();
   const announceRef = useRef(announce);
   announceRef.current = announce;
 
   useEffect(() => {
     connectSocket();
 
-    function onPlayerJoined({ player, playerSlot }: { player: PlayerConnection; playerSlot: "player1" | "player2" }) {
+    function onPlayerJoined({
+      player,
+      playerSlot,
+    }: {
+      player: PlayerConnection;
+      playerSlot: "player1" | "player2";
+    }) {
       setPlayer(playerSlot, player);
     }
 
-    function onCharacterSelected({ playerId, character }: { playerId: string; character: Character }) {
+    function onCharacterSelected({
+      playerId,
+      character,
+    }: {
+      playerId: string;
+      character: Character;
+    }) {
       const { player1: p1, player2: p2 } = useGameStore.getState();
-      const slot = p1?.playerId === playerId ? "player1"
-                 : p2?.playerId === playerId ? "player2"
-                 : null;
+      const slot =
+        p1?.playerId === playerId
+          ? "player1"
+          : p2?.playerId === playerId
+            ? "player2"
+            : null;
       if (!slot) return;
 
-      setSelectedCharacters(prev => {
-        const filtered = prev.filter(sc => sc.playerId !== playerId);
+      setSelectedCharacters((prev) => {
+        const filtered = prev.filter((sc) => sc.playerId !== playerId);
         return [...filtered, { playerId, character, playerSlot: slot }];
       });
-      announceRef.current(`And stepping into the arena... it's ${character.name}!`);
+      announceRef.current(
+        `And stepping into the arena... it's ${character.name}!`,
+      );
     }
 
     function onBattleStart({ battle }: { battle: Battle }) {
@@ -52,20 +79,38 @@ export function HostDisplay() {
       setResolving(true);
     }
 
-    function onRoundComplete({ battle, resolution }: { battle: Battle; resolution: BattleResolution }) {
+    function onRoundComplete({
+      battle,
+      resolution,
+    }: {
+      battle: Battle;
+      resolution: BattleResolution;
+    }) {
       setBattle(battle);
       setLastResolution(resolution);
       setResolving(false);
     }
 
-    function onBattleEnd({ winnerId, battle, finalResolution }: { winnerId: string; battle: Battle; finalResolution: BattleResolution }) {
+    function onBattleEnd({
+      winnerId,
+      battle,
+      finalResolution,
+    }: {
+      winnerId: string;
+      battle: Battle;
+      finalResolution: BattleResolution;
+    }) {
       setBattle(battle);
       setLastResolution(finalResolution);
       setResolving(false);
       setWinner(winnerId);
     }
 
-    function onNarratorAudio({ narratorScript }: { narratorScript: string }) {
+    function onNarratorAudio({
+      narratorScript,
+    }: {
+      narratorScript: string;
+    }) {
       announceRef.current(narratorScript);
     }
 
@@ -96,14 +141,16 @@ export function HostDisplay() {
   useEffect(() => {
     if (!room?.environment || arenaAnnouncedRef.current) return;
     arenaAnnouncedRef.current = true;
-    announceRef.current(`Welcome, fight fans, to tonight's arena! ${room.environment}. Who will dare to step into this battlefield?`);
+    announceRef.current(
+      `Welcome, fight fans, to tonight's arena! ${room.environment}. Who will dare to step into this battlefield?`,
+    );
   }, [room?.environment]);
 
   const p1 = battle?.player1;
   const p2 = battle?.player2;
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-black">
+    <div className="relative w-screen h-screen overflow-hidden bg-black font-body">
       {/* Video base layer — fills entire viewport */}
       <ReactorVideoSection
         battle={battle}
@@ -116,54 +163,126 @@ export function HostDisplay() {
         onBackToMenu={() => navigate("/")}
       />
 
-      {/* Top bar overlay: room code (left), announcer + round (right) */}
-      <div className="absolute top-4 left-4 right-4 flex justify-between items-center z-20 pointer-events-none">
-        <span className="bg-black/50 backdrop-blur-sm rounded-full px-4 py-1.5 text-sm text-gray-300 pointer-events-auto">
-          Room: <span className="font-mono text-white font-bold tracking-wider">{roomId}</span>
-        </span>
-        <div className="flex items-center gap-3 pointer-events-auto">
+      {/* ── Top bar overlay ── */}
+      <div className="absolute top-4 left-5 right-5 flex justify-between items-center z-20 pointer-events-none">
+        {/* Room code */}
+        <div className="bg-black/50 backdrop-blur-md border border-white/[0.08] rounded-xl px-4 py-2 pointer-events-auto">
+          <span className="text-[10px] tracking-[0.2em] uppercase text-gray-500 block leading-none">
+            Room
+          </span>
+          <span className="font-display text-xl font-bold tracking-[0.15em] text-white leading-tight">
+            {roomId}
+          </span>
+        </div>
+
+        {/* Announcer + round */}
+        <div className="flex items-center gap-2.5 pointer-events-auto">
           {available && (
             <button
               onClick={toggleMute}
-              className={`text-xs px-3 py-1.5 rounded-full backdrop-blur-sm transition-colors ${
+              className={`flex items-center gap-2 text-xs px-3.5 py-2 rounded-xl backdrop-blur-md border transition-all cursor-pointer ${
                 muted
-                  ? "bg-black/50 text-gray-500 hover:text-gray-300"
+                  ? "bg-black/50 border-white/[0.08] text-gray-500 hover:text-gray-300"
                   : isSpeaking
-                    ? "bg-yellow-900/50 text-yellow-400 animate-pulse"
-                    : "bg-black/50 text-green-400 hover:text-green-300"
+                    ? "bg-amber-900/40 border-amber-500/20 text-amber-400 animate-pulse"
+                    : "bg-black/50 border-emerald-500/20 text-emerald-400 hover:text-emerald-300"
               }`}
             >
-              {muted ? "Announcer OFF" : isSpeaking ? "Announcing..." : "Announcer ON"}
+              {muted ? (
+                <svg
+                  className="w-3.5 h-3.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M11 5L6 9H2v6h4l5 4V5z" />
+                  <line x1="23" y1="9" x2="17" y2="15" />
+                  <line x1="17" y1="9" x2="23" y2="15" />
+                </svg>
+              ) : (
+                <svg
+                  className="w-3.5 h-3.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M11 5L6 9H2v6h4l5 4V5z" />
+                  <path d="M19.07 4.93a10 10 0 010 14.14" />
+                  <path d="M15.54 8.46a5 5 0 010 7.07" />
+                </svg>
+              )}
+              {muted
+                ? "OFF"
+                : isSpeaking
+                  ? "Live"
+                  : "ON"}
             </button>
           )}
           {battle && (
-            <span className="bg-black/50 backdrop-blur-sm rounded-full px-3 py-1.5 text-sm text-gray-300">
-              Round {battle.resolutionHistory.length + 1}
-            </span>
+            <div className="bg-black/50 backdrop-blur-md border border-white/[0.08] rounded-xl px-3.5 py-2">
+              <span className="text-[10px] tracking-[0.2em] uppercase text-gray-500 block leading-none">
+                Round
+              </span>
+              <span className="font-display text-xl font-bold text-white leading-tight">
+                {battle.resolutionHistory.length + 1}
+              </span>
+            </div>
           )}
         </div>
       </div>
 
-      {/* HP bars overlay (only during battle) */}
+      {/* ── HP bars overlay (during battle) ── */}
       {battle && (
-        <div className="absolute top-16 left-4 right-4 z-20 pointer-events-none">
+        <div className="absolute top-20 left-5 right-5 z-20 pointer-events-none">
           <div className="flex items-center gap-3">
-            <HpBar name={p1!.character.name} hp={p1!.currentHp} maxHp={p1!.maxHp} color="green" imageUrl={p1!.character.imageUrl} />
-            <div className="bg-black/60 backdrop-blur-sm rounded-full px-3 py-1 text-gray-400 font-bold text-lg shrink-0">
+            <HpBar
+              name={p1!.character.name}
+              hp={p1!.currentHp}
+              maxHp={p1!.maxHp}
+              side="left"
+              imageUrl={p1!.character.imageUrl}
+            />
+            <div className="font-display text-2xl font-bold text-white/40 shrink-0 drop-shadow-lg">
               VS
             </div>
-            <HpBar name={p2!.character.name} hp={p2!.currentHp} maxHp={p2!.maxHp} color="red" align="right" imageUrl={p2!.character.imageUrl} />
+            <HpBar
+              name={p2!.character.name}
+              hp={p2!.currentHp}
+              maxHp={p2!.maxHp}
+              side="right"
+              imageUrl={p2!.character.imageUrl}
+            />
           </div>
         </div>
       )}
 
-      {/* Pre-battle: player slot cards overlay */}
+      {/* ── Pre-battle: player slot cards ── */}
       {!battle && (
-        <div className="absolute bottom-8 left-4 right-4 z-20 pointer-events-none">
-          <div className="flex gap-4 justify-center">
-            <PlayerSlot label="Player 1" player={player1} selectedChar={selectedCharacters.find(sc => sc.playerSlot === "player1")} />
-            <div className="flex items-center text-gray-500 font-bold text-xl">VS</div>
-            <PlayerSlot label="Player 2" player={player2} selectedChar={selectedCharacters.find(sc => sc.playerSlot === "player2")} />
+        <div className="absolute bottom-8 left-5 right-5 z-20 pointer-events-none">
+          <div className="flex gap-4 justify-center items-end">
+            <PlayerSlot
+              label="Player 1"
+              player={player1}
+              selectedChar={selectedCharacters.find(
+                (sc) => sc.playerSlot === "player1",
+              )}
+            />
+            <div className="font-display text-3xl font-bold text-white/30 shrink-0 pb-6 drop-shadow-lg">
+              VS
+            </div>
+            <PlayerSlot
+              label="Player 2"
+              player={player2}
+              selectedChar={selectedCharacters.find(
+                (sc) => sc.playerSlot === "player2",
+              )}
+            />
           </div>
         </div>
       )}
@@ -171,50 +290,103 @@ export function HostDisplay() {
   );
 }
 
-function HpBar({ name, hp, maxHp, color, align, imageUrl }: { name: string; hp: number; maxHp: number; color: string; align?: string; imageUrl: string }) {
+function HpBar({
+  name,
+  hp,
+  maxHp,
+  side,
+  imageUrl,
+}: {
+  name: string;
+  hp: number;
+  maxHp: number;
+  side: "left" | "right";
+  imageUrl: string;
+}) {
   const pct = (hp / maxHp) * 100;
-  const isRight = align === "right";
+  const isRight = side === "right";
+  const hpColor =
+    pct > 50
+      ? "bg-emerald-500 shadow-emerald-500/40"
+      : pct > 25
+        ? "bg-amber-500 shadow-amber-500/40"
+        : "bg-red-500 shadow-red-500/40";
+
   return (
-    <div className={`flex-1 flex items-center gap-3 ${isRight ? "flex-row-reverse" : "flex-row"}`}>
-      <img
-        src={imageUrl}
-        alt={name}
-        className={`w-14 h-14 rounded-full object-cover border-2 shrink-0 ${
-          color === "green"
-            ? "border-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]"
-            : "border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]"
-        }`}
-      />
+    <div
+      className={`flex-1 flex items-center gap-3 ${isRight ? "flex-row-reverse" : "flex-row"}`}
+    >
+      <div className="relative shrink-0">
+        <img
+          src={imageUrl}
+          alt={name}
+          className="w-14 h-14 rounded-xl object-cover ring-2 ring-white/20 shadow-lg"
+        />
+        {/* HP number badge */}
+        <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 bg-black/70 backdrop-blur-sm border border-white/10 rounded-md px-1.5 py-0.5">
+          <span className="text-[10px] font-bold text-white tabular-nums leading-none">
+            {hp}
+          </span>
+        </div>
+      </div>
       <div className={`flex-1 ${isRight ? "text-right" : ""}`}>
-        <p className="font-semibold text-white text-sm drop-shadow-lg">{name}</p>
-        <div className="w-full h-4 bg-black/50 backdrop-blur-sm rounded-full overflow-hidden mt-1 border border-white/10">
+        <p className="font-display text-lg uppercase tracking-wide font-bold text-white drop-shadow-lg leading-tight">
+          {name}
+        </p>
+        <div className="w-full h-3 bg-black/40 backdrop-blur-sm rounded-full overflow-hidden mt-1.5 border border-white/[0.08]">
           <div
-            className={`h-full rounded-full transition-all duration-500 ${color === "green" ? "bg-green-500 shadow-green-500/50 shadow-md" : "bg-red-500 shadow-red-500/50 shadow-md"}`}
+            className={`h-full rounded-full transition-all duration-700 ease-out shadow-md ${hpColor} ${isRight ? "ml-auto" : ""}`}
             style={{ width: `${pct}%` }}
           />
         </div>
-        <p className="text-xs text-gray-300 mt-1 drop-shadow">{hp}/{maxHp} HP</p>
       </div>
     </div>
   );
 }
 
-function PlayerSlot({ label, player, selectedChar }: { label: string; player: PlayerConnection | null; selectedChar?: SelectedCharacter }) {
+function PlayerSlot({
+  label,
+  player,
+  selectedChar,
+}: {
+  label: string;
+  player: PlayerConnection | null;
+  selectedChar?: SelectedCharacter;
+}) {
   return (
-    <div className={`w-56 rounded-lg p-4 backdrop-blur-sm ${player ? "bg-black/50 border border-green-800/50" : "bg-black/30 border border-gray-700/50 border-dashed"}`}>
-      <p className="text-xs text-gray-400 mb-1">{label}</p>
+    <div
+      className={`w-60 rounded-2xl p-4 backdrop-blur-md transition-all duration-500 ${
+        player
+          ? "bg-black/50 border border-white/[0.1]"
+          : "bg-black/30 border border-dashed border-white/[0.08]"
+      }`}
+    >
+      <span className="text-[10px] tracking-[0.2em] uppercase text-gray-500 font-medium">
+        {label}
+      </span>
       {player ? (
-        <div>
-          <p className="font-semibold text-white">{player.username}</p>
+        <div className="mt-1.5">
+          <p className="font-display text-xl uppercase tracking-wide font-bold text-white leading-tight">
+            {player.username}
+          </p>
           {selectedChar && (
-            <div className="flex items-center gap-2 mt-2">
-              <img src={selectedChar.character.imageUrl} alt={selectedChar.character.name} className="w-8 h-8 rounded-full object-cover" />
-              <p className="text-sm text-indigo-300">{selectedChar.character.name}</p>
+            <div className="flex items-center gap-2.5 mt-2.5">
+              <img
+                src={selectedChar.character.imageUrl}
+                alt={selectedChar.character.name}
+                className="w-10 h-10 rounded-lg object-cover ring-1 ring-white/15"
+              />
+              <p className="text-sm text-indigo-300/80 font-medium">
+                {selectedChar.character.name}
+              </p>
             </div>
           )}
         </div>
       ) : (
-        <p className="text-gray-500 italic">Waiting...</p>
+        <div className="mt-2 flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-gray-600 animate-pulse" />
+          <p className="text-gray-600 text-sm">Waiting&hellip;</p>
+        </div>
       )}
     </div>
   );

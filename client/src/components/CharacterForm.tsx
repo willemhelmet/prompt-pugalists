@@ -42,7 +42,7 @@ export function CharacterForm({
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [suggesting, setSuggesting] = useState(false);
-  const [enhancing, setEnhancing] = useState(false);
+
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -121,21 +121,6 @@ export function CharacterForm({
     }
   }
 
-  async function handleEnhance() {
-    if (!textPrompt.trim() || enhancing) return;
-    setEnhancing(true);
-    setError(null);
-
-    try {
-      const result = await api.enhanceCharacterPrompt(textPrompt.trim());
-      setTextPrompt(result.enhancedPrompt);
-    } catch (err: any) {
-      console.error("Enhancement failed:", err);
-      setError(err.message || "Enhancement failed");
-    } finally {
-      setEnhancing(false);
-    }
-  }
 
   async function handleSubmit() {
     if (!name.trim() || !textPrompt.trim() || saving) return;
@@ -301,30 +286,9 @@ export function CharacterForm({
           style={{ animationDelay: "0.2s", animationFillMode: "backwards" }}
         >
           <div className="bg-white/[0.03] backdrop-blur-sm border border-white/[0.06] rounded-2xl p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="text-[11px] tracking-[0.15em] uppercase text-gray-500 font-medium">
-                Fighter Description
-              </label>
-              <button
-                type="button"
-                onClick={handleEnhance}
-                disabled={!textPrompt.trim() || enhancing}
-                className="flex items-center gap-1.5 text-xs text-amber-400/80 hover:text-amber-300 disabled:text-gray-700 transition-colors cursor-pointer disabled:cursor-default"
-              >
-                {enhancing ? (
-                  <div className="w-3 h-3 border border-amber-400 border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <svg
-                    className="w-3 h-3"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                  >
-                    <path d="M12 2l2.09 6.26L20.18 9.27l-4.64 4.53L16.54 20 12 16.77 7.46 20l1-6.2L3.82 9.27l6.09-1.01z" />
-                  </svg>
-                )}
-                {enhancing ? "Enhancing..." : "Enhance"}
-              </button>
-            </div>
+            <label className="text-[11px] tracking-[0.15em] uppercase text-gray-500 font-medium">
+              Fighter Description
+            </label>
 
             <textarea
               value={textPrompt}
