@@ -383,6 +383,23 @@ Return ONLY the action text, no preamble.
   }
 }
 
+// ── Surprise Me helpers ──────────────────────────────────────
+
+const INSPIRATION_THEMES = [
+  "cosmic horror", "steampunk", "deep sea", "volcanic", "cyberpunk",
+  "underwater", "celestial", "fungal", "crystalline", "desert",
+  "arctic", "bioluminescent", "clockwork", "tribal", "noir",
+  "solarpunk", "eldritch", "insectoid", "samurai", "aztec",
+  "baroque", "post-apocalyptic", "ethereal", "biomechanical", "voodoo",
+  "quantum", "mythological", "carnival", "radioactive", "origami",
+  "gothic", "prehistoric", "alchemical", "astral", "swamp",
+];
+
+function pickRandomThemes(count: number): string[] {
+  const shuffled = [...INSPIRATION_THEMES].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count);
+}
+
 // ── Surprise Me: character prompt ─────────────────────────────
 
 export async function generateCharacterSuggestion(): Promise<{
@@ -404,11 +421,14 @@ export async function generateCharacterSuggestion(): Promise<{
 - "name": a dramatic character name (2-4 words)
 - "prompt": a vivid visual description for AI image generation (60-100 words). Describe their appearance, clothing, weapons, magical effects, and mood. Use cinematic, visual language.
 
-Be wildly creative — mix genres, cultures, and fantasy elements. No generic wizards or knights.`,
+Be wildly creative — mix genres, cultures, and fantasy elements. No generic wizards or knights.
+
+Inspiration themes: [${pickRandomThemes(3).join(", ")}]`,
         },
       ],
       responseFormat: { type: "json_object" },
       temperature: 1.0,
+      randomSeed: Math.floor(Math.random() * 2 ** 31),
       maxTokens: 200,
     });
 
@@ -551,10 +571,13 @@ export async function generateEnvironmentSuggestion(): Promise<string> {
         },
         {
           role: "user",
-          content: `Invent a unique battle arena for a fantasy fighting game. Return ONLY the description text (60-100 words, no JSON wrapping). Describe the landscape, lighting, atmosphere, and any dramatic environmental features. Use vivid, cinematic visual language. Be wildly creative — mix unexpected themes.`,
+          content: `Invent a unique battle arena for a fantasy fighting game. Return ONLY the description text (60-100 words, no JSON wrapping). Describe the landscape, lighting, atmosphere, and any dramatic environmental features. Use vivid, cinematic visual language. Be wildly creative — mix unexpected themes.
+
+Inspiration themes: [${pickRandomThemes(3).join(", ")}]`,
         },
       ],
       temperature: 1.0,
+      randomSeed: Math.floor(Math.random() * 2 ** 31),
       maxTokens: 150,
     });
 
