@@ -428,6 +428,52 @@ Be wildly creative — mix genres, cultures, and fantasy elements. No generic wi
   }
 }
 
+// ── Visual Fingerprint (Pixtral vision) ───────────────────────
+
+export async function generateVisualFingerprint(
+  imageUrl: string,
+  characterName: string,
+  originalTextPrompt: string,
+): Promise<string> {
+  try {
+    const response = await client.chat.complete({
+      model: "pixtral-large-2411",
+      messages: [
+        {
+          role: "system",
+          content: `You are a visual description specialist. Given an image of a fighting game character, produce a dense 100-150 word description that captures EVERY visual detail needed for a video AI to render this character consistently across frames. Include: clothing (materials, colors, patterns), body type and proportions, hair (style, color, length), skin tone, weapons or tools, accessories (jewelry, belts, masks), posture and stance, distinctive features (scars, tattoos, glowing effects), color palette. Be extremely specific — say "cobalt-blue leather pauldrons with brass rivets" not "blue armor". The character's name is "${characterName}" and the original creation prompt was: "${originalTextPrompt}". Use only visual descriptors — no narrative, no backstory.`,
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "image_url",
+              imageUrl: imageUrl,
+            },
+            {
+              type: "text",
+              text: `Describe this character's complete visual appearance in 100-150 words. Be extremely specific about colors, materials, and distinctive features.`,
+            },
+          ],
+        },
+      ],
+      temperature: 0.3,
+      maxTokens: 300,
+    });
+
+    const content = response.choices?.[0]?.message?.content;
+    if (!content || typeof content !== "string") {
+      throw new Error("Empty response from Pixtral");
+    }
+
+    console.log(`[Pixtral] Visual fingerprint generated for ${characterName}`);
+    return content.trim();
+  } catch (err) {
+    console.error(`[Pixtral] Visual fingerprint FAILED for ${characterName}:`, err);
+    return "";
+  }
+}
+
 // ── Surprise Me: environment prompt ───────────────────────────
 
 export async function generateEnvironmentSuggestion(): Promise<string> {

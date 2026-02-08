@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { nanoid } from "nanoid";
 import type Database from "better-sqlite3";
+import { generateVisualFingerprint } from "../ai/mistral.js";
 
 function toCamelCase(row: any): any {
   if (!row) return row;
@@ -48,36 +49,47 @@ export function characterRoutes(db: Database.Database): Router {
   });
 
   // Create character
-  router.post("/", (req, res) => {
+  router.post("/", async (req, res) => {
     const { userId, name, imageUrl, textPrompt, referenceImageUrl } = req.body;
     const id = nanoid();
     const now = new Date().toISOString();
 
+    const visualFingerprint = imageUrl
+      ? await generateVisualFingerprint(imageUrl, name, textPrompt)
+      : "";
+
     db.prepare(
-      `INSERT INTO characters (id, user_id, name, image_url, text_prompt, reference_image_url, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).run(id, userId, name, imageUrl, textPrompt, referenceImageUrl || null, now, now);
+      `INSERT INTO characters (id, user_id, name, image_url, text_prompt, reference_image_url, visual_fingerprint, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(id, userId, name, imageUrl, textPrompt, referenceImageUrl || null, visualFingerprint, now, now);
 
     const character = db.prepare("SELECT * FROM characters WHERE id = ?").get(id);
     res.status(201).json(toCamelCase(character));
   });
 
   // Update character
-  router.put("/:id", (req, res) => {
+  router.put("/:id", async (req, res) => {
     const { name, imageUrl, textPrompt, referenceImageUrl } = req.body;
     const now = new Date().toISOString();
 
-    const result = db
-      .prepare(
-        `UPDATE characters SET name = ?, image_url = ?, text_prompt = ?, reference_image_url = ?, updated_at = ?
-       WHERE id = ?`,
-      )
-      .run(name, imageUrl, textPrompt, referenceImageUrl || null, now, req.params.id);
+    const existing = db.prepare("SELECT * FROM characters WHERE id = ?").get(req.params.id) as
+      | { image_url: string; visual_fingerprint: string }
+      | undefined;
 
-    if (result.changes === 0) {
+    if (!existing) {
       res.status(404).json({ error: "Character not found" });
       return;
     }
+
+    const visualFingerprint =
+      imageUrl && imageUrl !== existing.image_url
+        ? await generateVisualFingerprint(imageUrl, name, textPrompt)
+        : existing.visual_fingerprint || "";
+
+    db.prepare(
+      `UPDATE characters SET name = ?, image_url = ?, text_prompt = ?, reference_image_url = ?, visual_fingerprint = ?, updated_at = ?
+       WHERE id = ?`,
+    ).run(name, imageUrl, textPrompt, referenceImageUrl || null, visualFingerprint, now, req.params.id);
 
     const character = db.prepare("SELECT * FROM characters WHERE id = ?").get(req.params.id);
     res.json(toCamelCase(character));
