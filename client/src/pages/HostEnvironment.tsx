@@ -102,10 +102,22 @@ export function HostEnvironment() {
     try {
       const result = await api.suggestEnvironment();
       setEnvironment(result.prompt);
+      setSuggesting(false);
+
+      // Immediately generate an image from the suggested prompt
+      setGenerating(true);
+      try {
+        const img = await api.generateCharacterImage(result.prompt);
+        setImageUrl(img.url);
+      } catch (imgErr: any) {
+        console.error("Arena generation failed:", imgErr);
+        setError(imgErr.message || "Image generation failed");
+      } finally {
+        setGenerating(false);
+      }
     } catch (err: any) {
       console.error("Suggestion failed:", err);
       setError(err.message || "Suggestion failed");
-    } finally {
       setSuggesting(false);
     }
   }
