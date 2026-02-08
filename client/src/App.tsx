@@ -9,6 +9,7 @@ import { Battle } from "./pages/Battle";
 import { CharacterGallery } from "./pages/CharacterGallery";
 import { CharacterCreate } from "./pages/CharacterCreate";
 import { CharacterEdit } from "./pages/CharacterEdit";
+import { Help } from "./pages/Help";
 import { ensureSession } from "./lib/session";
 import { useGameStore } from "./stores/gameStore";
 
@@ -43,6 +44,7 @@ export function App() {
         <Route path="/characters" component={CharacterGallery} />
         <Route path="/characters/create" component={CharacterCreate} />
         <Route path="/characters/:id/edit" component={CharacterEdit} />
+        <Route path="/help" component={Help} />
         <Route>
           <div className="flex items-center justify-center min-h-screen">
             <p className="text-xl">404 — Page not found</p>

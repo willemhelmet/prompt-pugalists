@@ -12,6 +12,14 @@ export function Landing() {
         className="absolute inset-0 w-full h-full object-cover"
         src="/whp-web.webm"
       />
+      {/* Help button */}
+      <Link
+        href="/help"
+        className="absolute top-5 right-5 z-10 w-10 h-10 rounded-full bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/20 transition-all flex items-center justify-center font-display font-bold text-lg"
+      >
+        ?
+      </Link>
+
       {/* Spacer to push buttons to bottom */}
       <div className="flex-1" />
 
