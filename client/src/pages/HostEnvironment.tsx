@@ -14,6 +14,7 @@ export function HostEnvironment() {
   const [referencePreview, setReferencePreview] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [suggesting, setSuggesting] = useState(false);
+  const [enhancing, setEnhancing] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [, navigate] = useLocation();
@@ -110,6 +111,22 @@ export function HostEnvironment() {
     }
   }
 
+  async function handleEnhance() {
+    if (!environment.trim() || enhancing) return;
+    setEnhancing(true);
+    setError(null);
+
+    try {
+      const result = await api.enhanceEnvironmentPrompt(environment.trim());
+      setEnvironment(result.enhancedPrompt);
+    } catch (err: any) {
+      console.error("Enhancement failed:", err);
+      setError(err.message || "Enhancement failed");
+    } finally {
+      setEnhancing(false);
+    }
+  }
+
   function selectPreset(preset: (typeof DEFAULT_ENVIRONMENTS)[number]) {
     setEnvironment(preset.description);
     // Use preset image if no generated image yet
@@ -181,9 +198,26 @@ export function HostEnvironment() {
           className="w-full h-28 bg-gray-900 border border-gray-700 rounded-lg p-3 text-white resize-none focus:outline-none focus:border-indigo-500"
           placeholder="A volcanic arena with rivers of molten lava..."
         />
-        <p className="text-xs text-gray-500 mt-1">
-          {environment.length}/{ENVIRONMENT_CHAR_LIMIT}
-        </p>
+        <div className="flex items-center justify-between mt-1">
+          <p className="text-xs text-gray-500">
+            {environment.length}/{ENVIRONMENT_CHAR_LIMIT}
+          </p>
+          <button
+            type="button"
+            onClick={handleEnhance}
+            disabled={!environment.trim() || enhancing}
+            className="flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300 disabled:text-gray-600 transition-colors"
+          >
+            {enhancing ? (
+              <div className="w-3 h-3 border border-amber-400 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2l2.09 6.26L20.18 9.27l-4.64 4.53L16.54 20 12 16.77 7.46 20l1-6.2L3.82 9.27l6.09-1.01z" />
+              </svg>
+            )}
+            {enhancing ? "Enhancing..." : "Enhance"}
+          </button>
+        </div>
       </div>
 
       {/* Reference Image Upload */}

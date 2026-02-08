@@ -474,6 +474,69 @@ export async function generateVisualFingerprint(
   }
 }
 
+// ── Prompt Enhancement ────────────────────────────────────────
+
+const CHARACTER_ENHANCE_SYSTEM_PROMPT = `You are a prompt enhancement specialist for a fighting game character creator. The user will give you a rough character description. Rewrite it with vivid, specific visual details optimized for AI image generation.
+
+Add specifics about:
+- Clothing materials, colors, and textures (e.g. "weathered bronze chainmail" not "armor")
+- Weapons with distinctive features (e.g. "jagged obsidian greatsword crackling with violet lightning")
+- Magical effects, auras, or elemental emanations
+- Stance, posture, and expression
+- Distinctive accessories (scars, tattoos, jewelry, masks)
+
+Keep the core concept the user intended. Output ONLY the enhanced description — no preamble, no quotes, no explanation. Stay under 500 characters.`;
+
+const ENVIRONMENT_ENHANCE_SYSTEM_PROMPT = `You are a prompt enhancement specialist for a fighting game battle arena. The user will give you a rough arena description. Rewrite it with vivid, cinematic detail optimized for AI image/video generation.
+
+Add specifics about:
+- Atmosphere and lighting (time of day, weather, volumetric effects)
+- Dramatic environmental features (hazards, moving elements, scale)
+- Color palette and mood
+- Textures and materials of the terrain
+
+Keep the core concept the user intended. Output ONLY the enhanced description — no preamble, no quotes, no explanation. Stay under 300 characters.`;
+
+export async function enhanceCharacterPrompt(prompt: string): Promise<string> {
+  const response = await client.chat.complete({
+    model: "mistral-medium-latest",
+    messages: [
+      { role: "system", content: CHARACTER_ENHANCE_SYSTEM_PROMPT },
+      { role: "user", content: prompt },
+    ],
+    temperature: 0.7,
+    maxTokens: 250,
+  });
+
+  const content = response.choices?.[0]?.message?.content;
+  if (!content || typeof content !== "string") {
+    throw new Error("Empty response from Mistral");
+  }
+
+  console.log("[Mistral] Character prompt enhanced");
+  return content.trim().slice(0, 500);
+}
+
+export async function enhanceEnvironmentPrompt(prompt: string): Promise<string> {
+  const response = await client.chat.complete({
+    model: "mistral-medium-latest",
+    messages: [
+      { role: "system", content: ENVIRONMENT_ENHANCE_SYSTEM_PROMPT },
+      { role: "user", content: prompt },
+    ],
+    temperature: 0.7,
+    maxTokens: 200,
+  });
+
+  const content = response.choices?.[0]?.message?.content;
+  if (!content || typeof content !== "string") {
+    throw new Error("Empty response from Mistral");
+  }
+
+  console.log("[Mistral] Environment prompt enhanced");
+  return content.trim().slice(0, 300);
+}
+
 // ── Surprise Me: environment prompt ───────────────────────────
 
 export async function generateEnvironmentSuggestion(): Promise<string> {

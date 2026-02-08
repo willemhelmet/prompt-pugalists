@@ -2,6 +2,8 @@ import { Router } from "express";
 import {
   generateCharacterSuggestion,
   generateEnvironmentSuggestion,
+  enhanceCharacterPrompt,
+  enhanceEnvironmentPrompt,
 } from "../ai/mistral.js";
 
 export function suggestRoutes(): Router {
@@ -24,6 +26,36 @@ export function suggestRoutes(): Router {
     } catch (err: any) {
       console.error("[Suggest] Environment suggestion failed:", err);
       res.status(500).json({ error: err.message || "Suggestion failed" });
+    }
+  });
+
+  router.post("/enhance-character", async (req, res) => {
+    const { prompt } = req.body;
+    if (!prompt || typeof prompt !== "string" || !prompt.trim()) {
+      res.status(400).json({ error: "prompt is required" });
+      return;
+    }
+    try {
+      const enhancedPrompt = await enhanceCharacterPrompt(prompt.trim());
+      res.json({ enhancedPrompt });
+    } catch (err: any) {
+      console.error("[Suggest] Character enhance failed:", err);
+      res.status(500).json({ error: err.message || "Enhancement failed" });
+    }
+  });
+
+  router.post("/enhance-environment", async (req, res) => {
+    const { prompt } = req.body;
+    if (!prompt || typeof prompt !== "string" || !prompt.trim()) {
+      res.status(400).json({ error: "prompt is required" });
+      return;
+    }
+    try {
+      const enhancedPrompt = await enhanceEnvironmentPrompt(prompt.trim());
+      res.json({ enhancedPrompt });
+    } catch (err: any) {
+      console.error("[Suggest] Environment enhance failed:", err);
+      res.status(500).json({ error: err.message || "Enhancement failed" });
     }
   });
 

@@ -95,6 +95,18 @@ export const api = {
   suggestEnvironment: () =>
     request<{ prompt: string }>("/suggest/environment", { method: "POST" }),
 
+  enhanceCharacterPrompt: (prompt: string) =>
+    request<{ enhancedPrompt: string }>("/suggest/enhance-character", {
+      method: "POST",
+      body: JSON.stringify({ prompt }),
+    }),
+
+  enhanceEnvironmentPrompt: (prompt: string) =>
+    request<{ enhancedPrompt: string }>("/suggest/enhance-environment", {
+      method: "POST",
+      body: JSON.stringify({ prompt }),
+    }),
+
   // Rooms
   getRoom: (id: string) => request<any>(`/rooms/${id}`),
 };
