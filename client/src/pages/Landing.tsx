@@ -12,9 +12,6 @@ export function Landing() {
         className="absolute inset-0 w-full h-full object-cover"
         src="/whp-web.webm"
       />
-      {/* Dark overlay to dim the video */}
-      <div className="absolute inset-0 bg-black/50" />
-
       {/* Spacer to push buttons to bottom */}
       <div className="flex-1" />
 
