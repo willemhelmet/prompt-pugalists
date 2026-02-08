@@ -324,9 +324,9 @@ Each character has a detailed text description (their "visual fingerprint"). You
 ## VISUAL DEGRADATION
 
 As fighters lose HP, their appearance MUST reflect the damage in the videoPrompt:
-- **40-50 HP (Fresh)**: Character looks as described in fingerprint — pristine, confident, powerful
-- **25-39 HP (Worn)**: Visible wear — torn clothing, sweat, dirt, scuffed armor, slightly hunched posture
-- **10-24 HP (Battered)**: Serious damage — bleeding, limping, broken equipment, exhaustion visible, struggling to stand
+- **30-40 HP (Fresh)**: Character looks as described in fingerprint — pristine, confident, powerful
+- **20-29 HP (Worn)**: Visible wear — torn clothing, sweat, dirt, scuffed armor, slightly hunched posture
+- **8-19 HP (Battered)**: Serious damage — bleeding, limping, broken equipment, exhaustion visible, struggling to stand
 - **1-9 HP (Desperate)**: Near collapse — barely standing, clothing in tatters, bloodied, one eye shut, using weapon as a crutch
 
 Always layer these degradation details ON TOP of the character's visual fingerprint. The character should still be recognizable but visibly worse for wear.
@@ -381,7 +381,7 @@ You MUST produce a "battleSummaryUpdate" — a 2-3 sentence summary of THIS roun
 
 ## HP SYSTEM
 
-- Both players: 50 HP max
+- Both players: 40 HP max
 - Healing: 5-10 HP (rare, requires narrative justification)
 - If HP reaches 0: set isVictory=true, provide victoryNarration
 
@@ -665,7 +665,7 @@ interface Character {
 - The pool grows organically as people play
 - Pre-made starter characters live in the same pool
 
-All characters have the same HP (50). Combat is entirely based on player creativity and AI interpretation. The visual fingerprint bridges the gap between Decart's image output and Reactor's text-only input.
+All characters have the same HP (40). Combat is entirely based on player creativity and AI interpretation. The visual fingerprint bridges the gap between Decart's image output and Reactor's text-only input.
 
 ### Room Schema
 
@@ -750,8 +750,8 @@ interface BattlePlayer {
   character: Character;
 
   // Fixed HP for all characters
-  currentHp: number; // Starts at 50
-  maxHp: number; // Always 50
+  currentHp: number; // Starts at 40
+  maxHp: number; // Always 40
 }
 ```
 
@@ -866,8 +866,8 @@ interface DiceRoll {
 │  Room Code: A3K9ZX             Round: 3         │
 ├────────────────┬────────────────────────────────┤
 │  Zara          │          Mordak                │
-│  HP: 35/50 ▓▓▓▓▓▓▓░░░                           │
-│                │          HP: 28/50 ▓▓▓▓▓░░░░░ │
+│  HP: 30/40 ▓▓▓▓▓▓▓░░░                           │
+│                │          HP: 22/40 ▓▓▓▓▓░░░░░ │
 ├────────────────┴────────────────────────────────┤
 │                                                  │
 │        [Reactor Video Feed - 1280x720]          │
@@ -1828,8 +1828,8 @@ CREATE INDEX idx_battles_room_id ON battles(room_id);
 
 **Characters:**
 
-- **Player 1 (Zara)**: Fire mage, 50 HP (visual fingerprint: "A fierce woman with flowing crimson robes, embers orbiting her outstretched hands, amber eyes glowing with inner fire, copper-red hair swept back in braids interwoven with glowing threads...")
-- **Player 2 (Mordak)**: Ice mage, 50 HP (visual fingerprint: "A tall gaunt man in frost-blue layered robes with crystalline shoulder guards, wielding a gnarled staff topped with a pulsing ice crystal, pale skin with blue veins visible at the temples...")
+- **Player 1 (Zara)**: Fire mage, 40 HP (visual fingerprint: "A fierce woman with flowing crimson robes, embers orbiting her outstretched hands, amber eyes glowing with inner fire, copper-red hair swept back in braids interwoven with glowing threads...")
+- **Player 2 (Mordak)**: Ice mage, 40 HP (visual fingerprint: "A tall gaunt man in frost-blue layered robes with crystalline shoulder guards, wielding a gnarled staff topped with a pulsing ice crystal, pale skin with blue veins visible at the temples...")
 
 **Initial State:**
 
@@ -2041,7 +2041,7 @@ Characters live in a **shared pool** — anyone can create one, anyone can pick 
 
 **Key Features**:
 
-- All characters have **50 HP** (standardized)
+- All characters have **40 HP** (standardized)
 - No stats, abilities, or items
 - **Shared pool** — create once, available to all
 - **Visual fingerprint cached** at creation time for instant battle starts
@@ -2143,10 +2143,10 @@ These serve as examples and starting points for new players.
 
 - [ ] Update player client with 4-button action layout
 - [ ] Wire action choices from engine output → player WebSocket
-- [ ] Add freeform text as secondary toggle option
-- [ ] Generate initial action choices for Round 1 (before first engine call)
-- [ ] Add 20-second timer per round
-- [ ] Track `actionSource: 'button' | 'freeform'`
+- [x] ~~Add freeform text as secondary toggle option~~ (cut — buttons-only is cleaner)
+- [x] Generate initial action choices for Round 1 (before first engine call)
+- [x] ~~Add 20-second timer per round~~ (cut — not needed for demo)
+- [x] ~~Track `actionSource: 'button' | 'freeform'`~~ (cut — no freeform input)
 
 #### Priority 4: AI Voice Narration (Neocortex)
 
@@ -2246,7 +2246,7 @@ These serve as examples and starting points for new players.
 
 ## Cost Estimates
 
-### AI API Costs (per battle, ~4 rounds avg for 50 HP)
+### AI API Costs (per battle, ~3 rounds avg for 40 HP)
 
 **Mistral AI** (mistral-large-latest — AI Engine):
 
