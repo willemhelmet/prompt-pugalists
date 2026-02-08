@@ -16,7 +16,7 @@ export function Landing() {
       <div className="flex-1" />
 
       {/* Buttons pinned to bottom */}
-      <div className="relative z-10 flex gap-3 w-full max-w-lg pb-4">
+      <div className="relative z-10 flex gap-3 w-full max-w-lg pb-4 bg-black/40 backdrop-blur-sm rounded-xl p-3">
         <Link
           href="/host/environment"
           className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-center py-3 px-4 rounded-lg font-semibold transition-colors"
