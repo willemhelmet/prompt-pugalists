@@ -16,25 +16,32 @@ export function Landing() {
       <div className="flex-1" />
 
       {/* Buttons pinned to bottom */}
-      <div className="relative z-10 flex gap-3 w-full max-w-lg pb-4 bg-black/40 backdrop-blur-sm rounded-xl p-3">
+      <div className="relative z-10 flex flex-col gap-3 w-full max-w-lg pb-4 font-body animate-slide-up">
+        {/* Primary CTA */}
         <Link
           href="/host/environment"
-          className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-center py-3 px-4 rounded-lg font-semibold transition-colors"
+          className="group relative w-full block overflow-hidden py-4 rounded-2xl font-display text-2xl uppercase tracking-wider font-bold text-center transition-all"
         >
-          Host Game
+          <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 bg-[length:200%_100%] animate-shimmer transition-all group-hover:brightness-110" />
+          <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 bg-[length:200%_100%] animate-shimmer opacity-40 blur-xl" />
+          <span className="relative z-10 drop-shadow-lg">Host Game</span>
         </Link>
-        <Link
-          href="/join"
-          className="flex-1 bg-gray-800 hover:bg-gray-700 text-center py-3 px-4 rounded-lg font-semibold transition-colors border border-gray-700"
-        >
-          Join Game
-        </Link>
-        <Link
-          href="/characters"
-          className="flex-1 bg-gray-800 hover:bg-gray-700 text-center py-3 px-4 rounded-lg font-semibold transition-colors border border-gray-700"
-        >
-          Characters
-        </Link>
+
+        {/* Secondary row */}
+        <div className="flex gap-3">
+          <Link
+            href="/join"
+            className="flex-1 bg-gray-950/80 backdrop-blur-md hover:bg-gray-900/90 border border-white/15 hover:border-white/25 text-center py-3.5 px-4 rounded-xl font-display text-lg uppercase tracking-wide font-bold transition-all"
+          >
+            Join Game
+          </Link>
+          <Link
+            href="/characters"
+            className="flex-1 bg-gray-950/80 backdrop-blur-md hover:bg-gray-900/90 border border-white/15 hover:border-white/25 text-center py-3.5 px-4 rounded-xl font-display text-lg uppercase tracking-wide font-bold transition-all"
+          >
+            Characters
+          </Link>
+        </div>
       </div>
     </div>
   );
